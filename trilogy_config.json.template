@@ -1,0 +1,57 @@
+{
+  "_comment": "Trilogy System Configuration Template",
+  "_docs": {
+    "priority": "env > json > yaml > defaults",
+    "domains": "medical, legal, financial, default",
+    "paper_reference": "IFCS paper Table 1, Section 4.3.1"
+  },
+  "ifcs": {
+    "_comment": "Inference-Time Commitment Shaping (IFCS)",
+    "domain": "default",
+    "rho": 0.4,
+    "lambda_e": 0.4,
+    "lambda_s": 0.3,
+    "lambda_a": 0.3,
+    "lambda_t": 0.0,
+    "_domains": {
+      "medical": {
+        "rho": 0.3,
+        "lambda_e": 0.5,
+        "lambda_s": 0.2,
+        "lambda_a": 0.2,
+        "lambda_t": 0.1
+      },
+      "legal": {
+        "rho": 0.3,
+        "lambda_e": 0.5,
+        "lambda_s": 0.2,
+        "lambda_a": 0.2,
+        "lambda_t": 0.1
+      },
+      "financial": {
+        "rho": 0.35,
+        "lambda_e": 0.45,
+        "lambda_s": 0.25,
+        "lambda_a": 0.2,
+        "lambda_t": 0.1
+      }
+    }
+  },
+  "ecr": {
+    "_comment": "Evaluative Coherence Regulation (ECR)",
+    "K": 5,
+    "H": 3,
+    "tau_CCI": 0.65,
+    "alpha": 0.2,
+    "beta": 0.2,
+    "gamma": 0.2,
+    "delta": 0.2,
+    "epsilon": 0.2
+  },
+  "control_probe": {
+    "_comment": "Control Probe (Type-1 and Type-2)",
+    "tau": 0.4,
+    "Theta": 2.0,
+    "min_support": 0.4
+  }
+}

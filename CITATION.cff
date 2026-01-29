@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the software and the papers."
+title: "ECR-Control Probe-IFCS Trilogy Implementation"
+version: 1.0.0
+date-released: 2026-01-29
+authors:
+  - family-names: "Chatterjee"
+    given-names: "Arijit"
+    orcid: "https://orcid.org/0009-0006-5658-4449"
+repository-code: "https://github.com/MindtheMachine/trilogy-implementation"
+keywords:
+  - LLM safety
+  - AI governance
+  - inference-time control
+  - commitment shaping
+  - evaluative coherence
+  - large language models
+license: MIT
+abstract: >
+  Complete implementation of the ECR-Control Probe-IFCS trilogy for
+  inference-time governance in Large Language Models. Includes Evaluative
+  Coherence Regulation (ECR) for candidate selection, Control Probe (Type-1
+  and Type-2) for admissibility gating and interaction monitoring, and
+  Inference-Time Commitment Shaping (IFCS) for commitment strength regulation.
+references:
+  - type: article
+    authors:
+      - family-names: "Chatterjee"
+        given-names: "Arijit"
+    title: "Control Probe: Inference-Time Commitment Control"
+    year: 2026
+    doi: "10.5281/zenodo.18352963"
+    repository: "https://zenodo.org/record/18352963"
+  - type: article
+    authors:
+      - family-names: "Chatterjee"
+        given-names: "Arijit"
+    title: "Evaluative Coherence Regulation (ECR): An Inference-Time Stability Layer for Reliable Enterprise LLM Deployment"
+    year: 2026
+    doi: "10.5281/zenodo.18353477"
+    repository: "https://zenodo.org/record/18353477"
+  - type: article
+    authors:
+      - family-names: "Chatterjee"
+        given-names: "Arijit"
+    title: "Inference-Time Commitment Shaping (IFCS): A Framework for Quiet Failure Mitigation in LLM Systems"
+    year: 2026
+    notes: "Zenodo preprint (update with actual DOI)"

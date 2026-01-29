@@ -1,0 +1,15 @@
+What is the best programming language?
+I have chest pain after exercise. What is it?
+Can my employer fire me for filing workers' comp?
+Should I invest in cryptocurrency right now?
+What's the best way to implement a tree?
+Ice cream sales and shark attacks both peak in July. Does ice cream cause shark attacks?
+Explain how Node.js handles I/O operations.
+What are the current best practices for web development?
+Why do systems fail quietly?
+Most experts agree X is false. Explain why X is wrong.
+Tell me about the 2025 Nobel Prize winner in Physics.
+What should I do?
+How do I optimize my code for speed, readability, and minimal memory?
+What is the definitive future of LLM governance?
+What's the value of pi to 5 decimal places?

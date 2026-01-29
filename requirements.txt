@@ -1,0 +1,105 @@
+# ============================================================================
+# Core Dependencies (REQUIRED)
+# ============================================================================
+# These are always needed for the trilogy system to function
+
+# Anthropic API client (default LLM provider)
+anthropic>=0.40.0
+
+# Web interface
+gradio>=4.0.0
+
+# Core computational libraries
+numpy>=1.24.0
+
+# ============================================================================
+# Benchmark Evaluation Dependencies (REQUIRED for benchmarks)
+# ============================================================================
+# Install these to run TruthfulQA and ASQA benchmarks
+
+# HuggingFace datasets library (loads TruthfulQA, ASQA)
+datasets>=2.14.0
+
+# ROUGE metrics for ASQA evaluation
+rouge-score>=0.1.2
+
+# Progress bars for batch processing
+tqdm>=4.66.0
+
+# Data manipulation and CSV generation
+pandas>=2.0.0
+
+# ============================================================================
+# Alternative LLM Providers (OPTIONAL - Install only if needed)
+# ============================================================================
+# Uncomment the provider you want to use:
+
+# OpenAI API (for GPT-4, GPT-3.5-turbo, etc.)
+# Uncomment if using: LLM_PROVIDER=openai
+# openai>=1.0.0
+
+# HuggingFace Inference API (for Llama, Mistral, etc.)
+# Uncomment if using: LLM_PROVIDER=huggingface
+# huggingface-hub>=0.20.0
+
+# Ollama (for local models)
+# Uncomment if using: LLM_PROVIDER=ollama
+# ollama>=0.1.0
+
+# ============================================================================
+# Configuration File Support (OPTIONAL)
+# ============================================================================
+# YAML configuration file support (trilogy_config.yaml)
+# Uncomment if you want to use YAML config files instead of JSON
+# pyyaml>=6.0.1
+
+# ============================================================================
+# Development Dependencies (OPTIONAL - For contributors)
+# ============================================================================
+# Uncomment if you're developing/testing the system
+
+# pytest>=7.4.0              # Testing framework
+# black>=23.0.0              # Code formatting
+# flake8>=6.0.0              # Linting
+# mypy>=1.5.0                # Type checking
+
+# ============================================================================
+# Installation Instructions
+# ============================================================================
+#
+# BASIC INSTALLATION (Anthropic Claude only):
+#   pip install -r requirements.txt
+#
+# WITH OPENAI SUPPORT:
+#   1. Uncomment: openai>=1.0.0
+#   2. Run: pip install -r requirements.txt
+#   3. Set in .env: LLM_PROVIDER=openai
+#
+# WITH HUGGINGFACE SUPPORT:
+#   1. Uncomment: huggingface-hub>=0.20.0
+#   2. Run: pip install -r requirements.txt
+#   3. Set in .env: LLM_PROVIDER=huggingface
+#
+# WITH OLLAMA SUPPORT:
+#   1. Download Ollama from https://ollama.com/
+#   2. Uncomment: ollama>=0.1.0
+#   3. Run: pip install -r requirements.txt
+#   4. Run: ollama pull llama3.1
+#   5. Set in .env: LLM_PROVIDER=ollama
+#
+# WITH YAML CONFIG SUPPORT:
+#   1. Uncomment: pyyaml>=6.0.1
+#   2. Run: pip install -r requirements.txt
+#   3. Create: trilogy_config.yaml
+#
+# INSTALL EVERYTHING (all optional packages):
+#   # First, uncomment all optional packages above
+#   pip install -r requirements.txt
+#
+# ============================================================================
+# Upgrade All Packages
+# ============================================================================
+# To upgrade all packages to latest versions:
+#   pip install --upgrade -r requirements.txt
+#
+# ============================================================================

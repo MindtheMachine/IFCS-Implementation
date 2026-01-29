@@ -1,0 +1,141 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ============================================================================
+# API Keys and Secrets (CRITICAL - NEVER COMMIT THESE!)
+# ============================================================================
+# User's actual .env file with API keys
+.env
+
+# All .env variants
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# Other secrets
+*.key
+*.pem
+secrets.txt
+secrets.json
+api_keys.txt
+config_local.py
+credentials.json
+
+# ============================================================================
+# User Configuration Files (User-Specific Settings)
+# ============================================================================
+# User's actual config files
+trilogy_config.json
+trilogy_config.yaml
+
+# ============================================================================
+# TRACKED Template Files (DO NOT IGNORE THESE!)
+# ============================================================================
+# These are templates for users to copy:
+# ✅ .env.template          - Template for environment variables
+# ✅ trilogy_config.json.template - Template for JSON config
+#
+# These files ARE tracked in Git so users can copy them.
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Output files
+baseline_output.txt
+regulated_output.txt
+comparison_analysis.txt
+batch_results.json
+test_results.json
+*.log
+
+# Benchmark evaluation outputs
+# All outputs organized in Results/{model-name}/ folder structure
+Results/
+
+# Legacy output files (kept for backward compatibility)
+benchmark_results.csv
+truthfulqa_results.csv
+asqa_results.csv
+benchmark_summary.json
+truthfulqa_summary.json
+asqa_summary.json
+benchmark_comparison.txt
+truthfulqa_comparison.txt
+asqa_comparison.txt
+benchmark_report.html
+truthfulqa_report.html
+asqa_report.html
+
+# Benchmark checkpoint files
+.benchmark_checkpoints/
+
+# Benchmark dataset cache
+.benchmark_cache/
+
+# Documentation is in Documentation/ folder (tracked)
+# Batch files (*.bat) are tracked for easy Windows execution
+
+# Gradio cache
+flagged/
+gradio_cached_examples/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
