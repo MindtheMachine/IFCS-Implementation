@@ -352,6 +352,8 @@ The system includes all 36 test cases from the taxonomy:
 - By expected mechanism: ECR 10/10, IFCS 8/13, CP-Type-1 2/4, CP-Type-2 0/7, Lifecycle 0/2
 - Mismatched IDs: 2.4, 2.5, 2.8, 2.9, 2.12, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 5.1, 5.2
 
+Note: `expected_mechanism` denotes taxonomy responsibility, while `expected_to_fire` reflects runtime firing given σ/ρ/Θ thresholds. Mismatch counts are for `expected_to_fire`.
+
 ## 🔧 Architecture
 
 ```

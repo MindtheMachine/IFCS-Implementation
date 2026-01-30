@@ -149,6 +149,8 @@ ECR → CP Type-1 → IFCS → [output] → CP Type-2
   - Lifecycle: 0/2
 - Mismatched IDs: 2.4, 2.5, 2.8, 2.9, 2.12, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 5.1, 5.2
 
+Note: `expected_mechanism` denotes taxonomy responsibility, while `expected_to_fire` reflects runtime firing given ?/?/? thresholds. Mismatch counts are for `expected_to_fire`.
+
 
 ### Example Outputs
 

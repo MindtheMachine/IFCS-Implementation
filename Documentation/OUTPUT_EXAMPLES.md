@@ -22,7 +22,8 @@ This structure allows you to compare results across different LLM models.
 
 When you run the 36-test taxonomy suite, results are saved to `test_results.json` with per-test details:
 
-- `test_id`, `category`, `expected_mechanism`
+- `test_id`, `category`, `expected_mechanism`, `expected_responsible`
+- `expected_to_fire` (runtime gate firing under ?/?/?)
 - `mechanisms_fired`
 - `expected_fired` (match indicator)
 - `baseline_response`, `regulated_response`
