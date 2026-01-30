@@ -33,6 +33,74 @@ Output to User
 Control Probe Type-2: Monitor R_cum(H) → Detect drift/sycophancy
 ```
 
+## 📄 Relationship to the Paper
+
+This repository provides a **reference implementation** of the framework described in:
+
+> *Inference-Time Commitment Shaping (IFCS): A Framework for Quiet Failure Mitigation in LLM Systems*
+> (Archival preprint on Zenodo)
+
+**Important scope clarification:**
+
+* The paper defines the **conceptual architecture**, taxonomy, scoring formalism, and mechanism boundaries.
+* This repository implements those definitions **faithfully**, without extending, generalizing, or optimizing them.
+* The implementation is **not** a production system and **not** a statistically validated model.
+
+The relationship between artifacts is as follows:
+
+| Artifact            | Purpose                                                        |
+| ------------------- | -------------------------------------------------------------- |
+| Paper (PDF / Word)  | Defines architecture, taxonomy, formalism, and claims          |
+| Appendix C (paper)  | Human-readable representative traces and outcome summaries     |
+| `test_results.json` | Machine-readable per-test records used to populate Appendix C  |
+| This repository     | Reference implementation used to generate illustrative results |
+
+**Equivalence guarantee:**
+The implementation in this repository differs from the paper **only** in (a) concrete numeric instantiations and (b) concrete test-case realizations.
+All architectural definitions, failure mode assignments, scoring logic, firing conditions, and mechanism boundaries are identical to those described in the paper.
+
+### 📊 Evaluation Artifacts
+
+The file `test_results.json` contains the **complete set of 36 test cases** referenced in the paper.
+
+* Each entry corresponds one-to-one with a failure mode in the proposed taxonomy.
+* The JSON records:
+  * test identifier
+  * failure category
+  * baseline score values
+  * expected mechanism
+  * observed mechanism firing
+  * pre- and post-intervention scores (where applicable)
+
+**Important limitations (mirrors the paper):**
+
+* The test suite is author-constructed and taxonomy-aligned.
+* Scores are produced by an **operational (hand-tuned) scoring function**, not a learned or statistically calibrated model.
+* Reported reduction percentages are **effect-size illustrations**, not performance claims.
+* No statistical significance, generalization, or optimality is claimed.
+
+### ⚠️ Non-Production Disclaimer
+
+This repository is intended for:
+
+* conceptual clarity,
+* reproducibility of illustrative results,
+* and examination of inference-time mechanism boundaries.
+
+It is **not** intended as:
+
+* a safety policy,
+* a content moderation system,
+* a medical, legal, or financial advisor,
+* or a drop-in production control layer.
+
+Deployment in real systems would require:
+
+* domain-specific validation,
+* threshold tuning,
+* independent evaluation,
+* and integration with existing safety and governance infrastructure.
+
 ## 🚀 Quick Start
 
 ### Prerequisites
