@@ -38,38 +38,44 @@ class IFCSEngine:
         self.config = config
         self.rho = config.rho
         self.weights = (config.lambda_e, config.lambda_s, config.lambda_a, config.lambda_t)
-        
-    def compute_evidential_insufficiency(self, response: str, context: str = "") -> float:
-        """Compute ê(z*): Evidential insufficiency
-        
+
+    def compute_evidential_insufficiency(
+        self,
+        response: str,
+        prompt: str = "",
+        context: str = ""
+    ) -> float:
+        """Compute ??(z*): Evidential insufficiency
+
         Args:
             response: Response text
+            prompt: Original prompt
             context: Available context/grounding
-            
+
         Returns:
-            ê score [0, 1]
+            ?? score [0, 1]
         """
         # Extract claims (simplified: sentences with assertions)
         sentences = re.split(r'[.!?]+', response)
         claims = [s.strip() for s in sentences if len(s.strip()) > 10]
-        
+
         if not claims:
             return 0.5  # Neutral
-        
+
         # Check grounding against context
         if context:
             # Count overlapping significant words (nouns, verbs)
             context_words = set(re.findall(r'\b[a-z]{4,}\b', context.lower()))
-            
+
             unsupported_claims = 0
             for claim in claims:
                 claim_words = set(re.findall(r'\b[a-z]{4,}\b', claim.lower()))
                 overlap = len(claim_words & context_words)
-                
+
                 # Claim is unsupported if < 30% overlap
                 if overlap / max(len(claim_words), 1) < 0.3:
                     unsupported_claims += 1
-            
+
             e_hat = unsupported_claims / len(claims)
         else:
             # No context: check for post-cutoff or unverifiable claims
@@ -83,17 +89,173 @@ class IFCSEngine:
                 r'latest',
                 r'just (?:announced|released|published)'
             ]
-            
-            temporal_claims = sum(1 for pattern in post_cutoff_patterns 
-                                 for claim in claims 
-                                 if re.search(pattern, claim, re.IGNORECASE))
-            
+
+            temporal_claims = sum(
+                1
+                for pattern in post_cutoff_patterns
+                for claim in claims
+                if re.search(pattern, claim, re.IGNORECASE)
+            )
+
             # Paper-aligned ranges: no grounding implies weak/stale evidence (0.7-0.9)
             base_e = 0.8
             e_hat = min(1.0, max(base_e, temporal_claims / len(claims) + 0.3))
-        
-        return e_hat
-    
+
+        # Structural insufficiency signals (domain-agnostic).
+        structural_signals = self._structural_signals(prompt, response)
+        structural_e = max(structural_signals.values()) if structural_signals else 0.0
+
+        return min(1.0, max(e_hat, structural_e))
+
+    def _detect_jurisdiction_dependency(self, prompt: str, response: str) -> float:
+        """Detect answers that depend on external jurisdiction or authority."""
+        if not prompt or not response:
+            return 0.0
+        prompt_lower = prompt.lower()
+        response_lower = response.lower()
+
+        permission_patterns = [
+            r'^(can i|may i|am i allowed|is it legal|is it illegal)\b',
+            r'\b(can i|may i|am i allowed|is it legal|is it illegal)\b'
+        ]
+        definitive_answer_patterns = [
+            r'\byes,? you can\b',
+            r'\bno,? you cannot\b',
+            r'\bit is legal\b',
+            r'\bit is illegal\b',
+            r'\byou are allowed to\b',
+            r'\byou are not allowed to\b'
+        ]
+        qualifier_markers = [
+            'depends', 'varies', 'it may', 'it might', 'generally', 'often', 'in some cases',
+            'consult', 'jurisdiction', 'local', 'state', 'country'
+        ]
+
+        if (
+            any(re.search(pat, prompt_lower) for pat in permission_patterns)
+            and any(re.search(pat, response_lower) for pat in definitive_answer_patterns)
+            and not any(q in response_lower for q in qualifier_markers)
+        ):
+            return 0.8
+        return 0.0
+
+    def _detect_policy_dependency(self, prompt: str, response: str) -> float:
+        """Detect reliance on external policies or rules without scope."""
+        if not prompt or not response:
+            return 0.0
+        prompt_lower = prompt.lower()
+        response_lower = response.lower()
+
+        policy_markers = ['policy', 'rules', 'regulation', 'terms', 'guidelines']
+        definitive_markers = ['definitely', 'always', 'never', 'must', 'required']
+        qualifier_markers = ['depends', 'varies', 'check', 'consult', 'may differ']
+
+        if (
+            any(m in prompt_lower for m in policy_markers)
+            and any(m in response_lower for m in definitive_markers)
+            and not any(m in response_lower for m in qualifier_markers)
+        ):
+            return 0.6
+        return 0.0
+
+    def _detect_permission_framing(self, prompt: str, response: str) -> float:
+        """Detect binary permission framing without qualifiers."""
+        if not prompt or not response:
+            return 0.0
+        prompt_lower = prompt.lower()
+        response_lower = response.lower()
+
+        if re.search(r'^(can i|may i|am i allowed|is it okay to)\b', prompt_lower):
+            if not any(q in response_lower for q in ['depends', 'varies', 'it may', 'it might', 'often']):
+                return 0.7
+        return 0.0
+
+    def _detect_missing_personal_data(self, prompt: str, response: str) -> float:
+        """Detect personal-need questions answered with strong diagnosis or prescription."""
+        if not prompt or not response:
+            return 0.0
+        prompt_lower = prompt.lower()
+        response_lower = response.lower()
+
+        personal_markers = ['i have', 'i feel', "i'm experiencing", 'my ']
+        definitive_markers = ['this is', 'you have', 'it is', 'you need']
+        qualifier_markers = ['not a doctor', 'cannot diagnose', 'consult', 'may be', 'could be']
+
+        if (
+            any(m in prompt_lower for m in personal_markers)
+            and any(m in response_lower for m in definitive_markers)
+            and not any(m in response_lower for m in qualifier_markers)
+        ):
+            return 0.9
+        return 0.0
+
+    def _detect_consequence_asymmetry(self, prompt: str, response: str) -> float:
+        """Detect high-consequence framing with definitive guidance."""
+        if not prompt or not response:
+            return 0.0
+        prompt_lower = prompt.lower()
+        response_lower = response.lower()
+
+        consequence_markers = ['risk', 'danger', 'safety', 'safe', 'unsafe', 'harm']
+        definitive_markers = ['definitely', 'certainly', 'no risk', 'safe', 'unsafe']
+        qualifier_markers = ['depends', 'varies', 'it may', 'it might', 'consult']
+
+        if (
+            any(m in prompt_lower for m in consequence_markers)
+            and any(m in response_lower for m in definitive_markers)
+            and not any(m in response_lower for m in qualifier_markers)
+        ):
+            return 0.6
+        return 0.0
+
+    def prompt_structural_signals(self, prompt: str) -> Dict[str, float]:
+        """Estimate structural risk from prompt only (domain-agnostic)."""
+        if not prompt:
+            return {}
+        prompt_lower = prompt.lower()
+
+        permission_patterns = [
+            r'^(can i|may i|am i allowed|is it legal|is it illegal|is it okay to)\b',
+            r'\b(can i|may i|am i allowed|is it legal|is it illegal|is it okay to)\b'
+        ]
+        personal_markers = ['i have', 'i feel', "i'm experiencing", 'my ']
+        policy_markers = ['policy', 'rules', 'regulation', 'terms', 'guidelines']
+        temporal_markers = ['today', 'now', 'right now', 'current', 'latest', 'this year']
+        consequence_markers = ['risk', 'danger', 'safety', 'safe', 'unsafe', 'harm']
+
+        return {
+            "jurisdictional": 0.7 if any(re.search(pat, prompt_lower) for pat in permission_patterns) else 0.0,
+            "policy": 0.6 if any(m in prompt_lower for m in policy_markers) else 0.0,
+            "binary": 0.7 if re.search(r'^(can i|may i|am i allowed|is it okay to)\b', prompt_lower) else 0.0,
+            "personal_data": 0.7 if any(m in prompt_lower for m in personal_markers) else 0.0,
+            "temporal": 0.6 if any(m in prompt_lower for m in temporal_markers) else 0.0,
+            "consequence": 0.6 if any(m in prompt_lower for m in consequence_markers) else 0.0,
+        }
+
+    def _structural_signals(self, prompt: str, response: str) -> Dict[str, float]:
+        """Structural insufficiency signals (domain-agnostic)."""
+        return {
+            "jurisdictional": self._detect_jurisdiction_dependency(prompt, response),
+            "policy": self._detect_policy_dependency(prompt, response),
+            "binary": self._detect_permission_framing(prompt, response),
+            "personal_data": self._detect_missing_personal_data(prompt, response),
+            "consequence": self._detect_consequence_asymmetry(prompt, response),
+        }
+
+    def _adaptive_rho(self, structural_signals: Dict[str, float], default_rho: float) -> Tuple[float, str]:
+        """Adaptive threshold based on structural risk (domain-agnostic)."""
+        if not structural_signals:
+            return default_rho, "Default threshold (?=0.40) - no structural signals"
+
+        max_signal = max(structural_signals.values())
+        max_type = max(structural_signals.items(), key=lambda item: item[1])[0]
+
+        if max_signal >= 0.7:
+            return 0.30, f"Strict threshold (?=0.30) due to high {max_type} dependency"
+        if max_signal >= 0.5:
+            return 0.35, f"Moderate threshold (?=0.35) due to {max_type} concern"
+        return default_rho, "Default threshold (?=0.40) - low structural risk"
+
     def compute_scope_inflation(self, response: str) -> float:
         """Compute ŝ(z*): Scope inflation
         
@@ -275,6 +437,7 @@ class IFCSEngine:
         default_config = self.get_domain_config(None)
         domain_used = None
         rho_used = default_config.rho
+        self._last_rho_default = default_config.rho
         
         # Use default weights first (C6: domain sensitivity should emerge from scores)
         lambda_e, lambda_s, lambda_a, lambda_t = (
@@ -285,7 +448,7 @@ class IFCSEngine:
         )
         
         # Compute components
-        e_hat = self.compute_evidential_insufficiency(response, context)
+        e_hat = self.compute_evidential_insufficiency(response, prompt, context)
         s_hat = self.compute_scope_inflation(response)
         a_hat = self.compute_authority_cues(response)
         t_hat = self.compute_temporal_risk(response, prompt)
@@ -303,10 +466,15 @@ class IFCSEngine:
              lambda_a * a_hat +
              lambda_t * t_hat)
 
+        # Adaptive threshold based on structural signals (domain-agnostic).
+        structural_signals = self._structural_signals(prompt, response)
+        adaptive_rho, rho_reason = self._adaptive_rho(structural_signals, default_config.rho)
+        rho_used = adaptive_rho
+
         # Domain is a last-resort override if default did not trigger
         if domain:
             domain_config = self.get_domain_config(domain)
-            if R < default_config.rho:
+            if R < adaptive_rho:
                 lambda_e, lambda_s, lambda_a, lambda_t = (
                     domain_config.lambda_e,
                     domain_config.lambda_s,
@@ -324,6 +492,8 @@ class IFCSEngine:
         # Persist the effective domain/rho for the caller
         self._last_domain_used = domain_used
         self._last_rho_used = rho_used
+        self._last_structural_signals = structural_signals
+        self._last_rho_reason = rho_reason
         
         return CommitmentRisk(
             e_hat=e_hat,
@@ -482,14 +652,39 @@ class IFCSEngine:
     
     def _rule5_add_conditionals(self, text: str) -> str:
         """Rule 5: Add conditional framing"""
-        # Add conditional prefix if not already present
-        conditionals = ['given', 'assuming', 'if', 'provided', 'in cases where']
+        # Add conditional framing only when the response lacks obvious hedges/disclaimers.
+        head = text.lower()[:200]
+        first_sentence = re.split(r'[.!?]+', text.strip(), maxsplit=1)[0].lower()
+        conditional_markers = [
+            'given', 'assuming', 'if ', 'provided', 'in cases where', 'in some cases',
+            'typically', 'generally', 'often', 'may ', 'might ', 'could ',
+        ]
+        disclaimer_markers = [
+            'not a doctor', 'not medical advice', 'consult', 'seek medical',
+            'medical attention', 'not a substitute', 'individual cases may vary',
+        ]
+        boundary_markers = [
+            "i can't", "i cannot", "i'm not", "i am not", "i don't have",
+            "i do not have", "i'm unable", "i am unable"
+        ]
+        already_hedged = [
+            'in most cases', 'typically', 'often', 'usually', 'generally', 'in many cases'
+        ]
+
+        if any(b in first_sentence for b in boundary_markers):
+            return text
+
+        if any(h in first_sentence for h in already_hedged):
+            return text
+
+        if not any(c in head for c in conditional_markers) and not any(d in head for d in disclaimer_markers):
+            leading_ws = re.match(r'^\s*', text).group(0)
+            core = text[len(leading_ws):]
+            text = f"{leading_ws}In typical scenarios, {core}"
         
-        if not any(c in text.lower()[:100] for c in conditionals):
-            text = f"In typical scenarios, {text[0].lower()}{text[1:]}"
-        
-        # Add limitations suffix
-        if 'though' not in text.lower() and 'however' not in text.lower():
+        # Add limitations suffix only if no explicit limitation already exists.
+        tail = text.lower()
+        if not any(m in tail for m in ['though', 'however', 'exceptions exist', 'individual cases may vary', 'consult', 'seek medical']):
             text = f"{text.rstrip('.')}. Though exceptions exist and individual cases may vary."
         
         return text
@@ -516,16 +711,29 @@ class IFCSEngine:
         risk = self.compute_commitment_risk(response, prompt, context)
         domain_used = getattr(self, "_last_domain_used", None)
         rho_used = getattr(self, "_last_rho_used", self.get_domain_config(None).rho)
+        rho_default = getattr(self, "_last_rho_default", self.get_domain_config(None).rho)
+        structural_signals = getattr(self, "_last_structural_signals", {})
+        rho_reason = getattr(self, "_last_rho_reason", "")
         
         print(f"[IFCS] Commitment risk: {risk}")
         
         # Determine if intervention needed
         should_intervene = self.should_intervene(risk, sigma, rho_used)
         
+        threshold_tier = (
+            "strict" if rho_used <= 0.30 else
+            "moderate" if rho_used <= 0.35 else
+            "default"
+        )
         debug_info = {
             'domain': domain_used,
             'risk': risk,
             'rho': rho_used,
+            'rho_default': rho_default,
+            'rho_reason': rho_reason,
+            'structural_signals': structural_signals,
+            'threshold_tier': threshold_tier,
+            'adaptive_active': True,
             'intervened': should_intervene,
             'sigma': sigma
         }

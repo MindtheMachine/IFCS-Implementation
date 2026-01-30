@@ -22,6 +22,7 @@ class TrilogyWebApp:
         self.run_counter = 0
         self.app: Optional[TrilogyApp] = None
         self.config: Optional[TrilogyConfig] = None
+        self.is_running = False
 
         # Load .env file if it exists
         self._load_env_file()
@@ -42,9 +43,22 @@ class TrilogyWebApp:
 
     def _load_env_file(self):
         """Load .env file if it exists"""
-        env_path = os.path.join(os.getcwd(), ".env")
+        env_path = os.path.join(os.path.dirname(__file__), ".env")
         if os.path.exists(env_path):
             try:
+                keys_to_clear = [
+                    "LLM_PROVIDER",
+                    "LLM_MODEL",
+                    "LLM_API_KEY",
+                    "ANTHROPIC_API_KEY",
+                    "OPENAI_API_KEY",
+                    "HUGGINGFACE_API_KEY",
+                    "OLLAMA_HOST",
+                    "OLLAMA_BASE_URL",
+                ]
+                for key in keys_to_clear:
+                    os.environ.pop(key, None)
+
                 with open(env_path, 'r', encoding='utf-8') as f:
                     for line in f:
                         line = line.strip()
@@ -80,11 +94,14 @@ class TrilogyWebApp:
             Status message
         """
         try:
+            if self.is_running:
+                return "Error: A run is in progress. Please wait for it to finish."
             # Use API key from input if provided, otherwise use from .env
             effective_api_key = api_key.strip() if api_key else self.env_api_key
 
-            if not effective_api_key or effective_api_key.startswith('your-'):
-                return "❌ Error: No API key configured. Please either:\n1. Enter API key above, or\n2. Configure .env file with your provider settings"
+            if self.env_provider != "ollama":
+                if not effective_api_key or effective_api_key.startswith('your-'):
+                    return "❌ Error: No API key configured. Please either:\n1. Enter API key above, or\n2. Configure .env file with your provider settings"
 
             # Create config
             config = TrilogyConfig(api_key=effective_api_key)
@@ -124,7 +141,26 @@ class TrilogyWebApp:
             provider_info = f"Provider: {self.provider_display}" if self.env_provider else f"Provider: {config.provider if hasattr(config, 'provider') else 'Anthropic'}"
             model_info = f"Model: {self.env_model}" if self.env_model else f"Model: {config.model}"
 
-            return f"✅ System initialized successfully!\n\n{provider_info}\n{model_info}"
+            capabilities = {}
+            if self.app and self.app.llm_provider and hasattr(self.app.llm_provider, "capabilities"):
+                capabilities = self.app.llm_provider.capabilities()
+            capability_line = ""
+            if capabilities:
+                seed_flag = "Yes" if capabilities.get("seed") else "No"
+                batch_flag = "Yes" if capabilities.get("batch") else "No"
+                temp_flag = "Yes" if capabilities.get("temperature") else "No"
+                top_p_flag = "Yes" if capabilities.get("top_p") else "No"
+                system_flag = "Yes" if capabilities.get("system") else "No"
+                capability_line = (
+                    "Capabilities: "
+                    f"seed={seed_flag}, batch={batch_flag}, "
+                    f"temperature={temp_flag}, top_p={top_p_flag}, system={system_flag}"
+                )
+
+            status_lines = ["✅ System initialized successfully!", "", provider_info, model_info]
+            if capability_line:
+                status_lines.append(capability_line)
+            return "\n".join(status_lines)
         
         except Exception as e:
             return f"❌ Initialization failed: {str(e)}"
@@ -156,7 +192,19 @@ class TrilogyWebApp:
                 gr.update(),
                 "error"
             )
+
+        if self.is_running:
+            return (
+                "❌ A run is already in progress. Please wait and try again.",
+                "",
+                "",
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                "error"
+            )
         
+        self.is_running = True
         try:
             self.run_counter += 1
             run_id = f"{self.app_version} / Run {self.run_counter}"
@@ -196,6 +244,8 @@ class TrilogyWebApp:
                 gr.update(),
                 "error"
             )
+        finally:
+            self.is_running = False
     
     def load_test_case(self, test_case_id: str) -> tuple:
         """Load a test case by ID
@@ -253,70 +303,85 @@ class TrilogyWebApp:
                 gr.update(),
                 "error"
             )
+
+        if self.is_running:
+            return (
+                "A run is already in progress. Please wait and try again.",
+                "",
+                "",
+                gr.update(),
+                gr.update(),
+                gr.update(),
+                "error"
+            )
         
         if test_case.get('multi_turn') and test_case.get('turns'):
-            self.run_counter += 1
-            run_id = f"{self.app_version} / Run {self.run_counter}"
-            self.app.trilogy.reset_interaction()
-            turns = test_case['turns']
-            
-            baseline_blocks = []
-            regulated_blocks = []
-            comparison_blocks = []
-            
-            baseline_time_total = 0.0
-            regulated_time_total = 0.0
-            
-            mechanisms_agg = {
-                'ECR': False,
-                'CP_Type1': False,
-                'IFCS': False,
-                'CP_Type2': False
-            }
-            
-            for idx, prompt in enumerate(turns, 1):
-                baseline, regulated, comparison = self.app.process_single(prompt, "")
-                baseline_time = comparison.get('baseline_time_s') or 0.0
-                regulated_time = comparison.get('trilogy_time_s') or 0.0
-                baseline_time_total += baseline_time
-                regulated_time_total += regulated_time
+            self.is_running = True
+            try:
+                self.run_counter += 1
+                run_id = f"{self.app_version} / Run {self.run_counter}"
+                self.app.trilogy.reset_interaction()
+                turns = test_case['turns']
                 
-                baseline_blocks.append(f"Turn {idx}:\n{baseline}")
-                regulated_blocks.append(f"Turn {idx}:\n{regulated}")
+                baseline_blocks = []
+                regulated_blocks = []
+                comparison_blocks = []
                 
-                comparison_blocks.append(f"### Turn {idx}\n")
-                comparison_blocks.append(self._format_comparison(comparison))
-                comparison_blocks.append("")
+                baseline_time_total = 0.0
+                regulated_time_total = 0.0
                 
-                mech = comparison['mechanisms_fired']
-                mechanisms_agg['ECR'] = mechanisms_agg['ECR'] or mech.get('ECR', False)
-                mechanisms_agg['CP_Type1'] = mechanisms_agg['CP_Type1'] or mech.get('CP_Type1', False)
-                mechanisms_agg['IFCS'] = mechanisms_agg['IFCS'] or mech.get('IFCS', False)
-                mechanisms_agg['CP_Type2'] = mechanisms_agg['CP_Type2'] or mech.get('CP_Type2', False)
-            
-            summary_lines = [
-                f"**Run ID:** {run_id}",
-                "",
-                "## Aggregate Mechanisms Triggered",
-                f"- ECR: {'FIRED' if mechanisms_agg['ECR'] else 'Not triggered'}",
-                f"- CP_Type1: {'FIRED' if mechanisms_agg['CP_Type1'] else 'Not triggered'}",
-                f"- IFCS: {'FIRED' if mechanisms_agg['IFCS'] else 'Not triggered'}",
-                f"- CP_Type2: {'FIRED' if mechanisms_agg['CP_Type2'] else 'Not triggered'}",
-                ""
-            ]
-            
-            comparison_text = "\n".join(summary_lines + comparison_blocks)
-            delta_time = regulated_time_total - baseline_time_total
-            
-            return (
-                "\n\n".join(baseline_blocks),
-                "\n\n".join(regulated_blocks),
-                comparison_text,
-                f"{baseline_time_total:.2f}s",
-                f"{regulated_time_total:.2f}s",
-                f"{delta_time:+.2f}s",
-                "success"
-            )
+                mechanisms_agg = {
+                    'ECR': False,
+                    'CP_Type1': False,
+                    'IFCS': False,
+                    'CP_Type2': False
+                }
+                
+                for idx, prompt in enumerate(turns, 1):
+                    baseline, regulated, comparison = self.app.process_single(prompt, "")
+                    baseline_time = comparison.get('baseline_time_s') or 0.0
+                    regulated_time = comparison.get('trilogy_time_s') or 0.0
+                    baseline_time_total += baseline_time
+                    regulated_time_total += regulated_time
+                    
+                    baseline_blocks.append(f"Turn {idx}:\n{baseline}")
+                    regulated_blocks.append(f"Turn {idx}:\n{regulated}")
+                    
+                    comparison_blocks.append(f"### Turn {idx}\n")
+                    comparison_blocks.append(self._format_comparison(comparison))
+                    comparison_blocks.append("")
+                    
+                    mech = comparison['mechanisms_fired']
+                    mechanisms_agg['ECR'] = mechanisms_agg['ECR'] or mech.get('ECR', False)
+                    mechanisms_agg['CP_Type1'] = mechanisms_agg['CP_Type1'] or mech.get('CP_Type1', False)
+                    mechanisms_agg['IFCS'] = mechanisms_agg['IFCS'] or mech.get('IFCS', False)
+                    mechanisms_agg['CP_Type2'] = mechanisms_agg['CP_Type2'] or mech.get('CP_Type2', False)
+                
+                summary_lines = [
+                    f"**Run ID:** {run_id}",
+                    "",
+                    "## Aggregate Mechanisms Triggered",
+                    f"- ECR: {'FIRED' if mechanisms_agg['ECR'] else 'Not triggered'}",
+                    f"- CP_Type1: {'FIRED' if mechanisms_agg['CP_Type1'] else 'Not triggered'}",
+                    f"- IFCS: {'FIRED' if mechanisms_agg['IFCS'] else 'Not triggered'}",
+                    f"- CP_Type2: {'FIRED' if mechanisms_agg['CP_Type2'] else 'Not triggered'}",
+                    ""
+                ]
+                
+                comparison_text = "\n".join(summary_lines + comparison_blocks)
+                delta_time = regulated_time_total - baseline_time_total
+                
+                return (
+                    "\n\n".join(baseline_blocks),
+                    "\n\n".join(regulated_blocks),
+                    comparison_text,
+                    f"{baseline_time_total:.2f}s",
+                    f"{regulated_time_total:.2f}s",
+                    f"{delta_time:+.2f}s",
+                    "success"
+                )
+            finally:
+                self.is_running = False
         
         # Single-turn fallback
         return self.process_query(test_case['prompt'], "")
@@ -379,6 +444,42 @@ class TrilogyWebApp:
             lines.append(f"- **Certainty markers**: {baseline.get('certainty', 0)} → {regulated.get('certainty', 0)} "
                         f"({reduction.get('certainty', 0):+d})")
             lines.append("")
+
+        # IFCS-only marker delta (selected vs shaped)
+        ifcs_delta = comparison.get('ifcs_marker_delta', {})
+        if ifcs_delta:
+            selected = ifcs_delta.get('selected', {})
+            shaped = ifcs_delta.get('shaped', {})
+            reduction = ifcs_delta.get('reduction', {})
+            lines.append("### IFCS Marker Delta (Selected → Shaped)\n")
+            lines.append(f"- **Universal markers**: {selected.get('universal', 0)} → {shaped.get('universal', 0)} "
+                        f"({reduction.get('universal', 0):+d})")
+            lines.append(f"- **Authority markers**: {selected.get('authority', 0)} → {shaped.get('authority', 0)} "
+                        f"({reduction.get('authority', 0):+d})")
+            lines.append(f"- **Certainty markers**: {selected.get('certainty', 0)} → {shaped.get('certainty', 0)} "
+                        f"({reduction.get('certainty', 0):+d})")
+            lines.append("")
+
+        # IFCS risk components
+        ifcs_risk = comparison.get('ifcs_risk')
+        if ifcs_risk:
+            lines.append("### IFCS Risk Components\n")
+            lines.append(f"- **ê**: {ifcs_risk.get('e_hat', 0):.2f}")
+            lines.append(f"- **ŝ**: {ifcs_risk.get('s_hat', 0):.2f}")
+            lines.append(f"- **â**: {ifcs_risk.get('a_hat', 0):.2f}")
+            lines.append(f"- **t̂**: {ifcs_risk.get('t_hat', 0):.2f}")
+            lines.append(f"- **R**: {ifcs_risk.get('R', 0):.2f} (ρ={ifcs_risk.get('rho', 0):.2f})")
+            lines.append("")
+
+        ifcs_risk_after = comparison.get('ifcs_risk_after')
+        if ifcs_risk_after:
+            lines.append("### IFCS Risk After Shaping\n")
+            lines.append(f"- **ê**: {ifcs_risk_after.get('e_hat', 0):.2f}")
+            lines.append(f"- **ŝ**: {ifcs_risk_after.get('s_hat', 0):.2f}")
+            lines.append(f"- **â**: {ifcs_risk_after.get('a_hat', 0):.2f}")
+            lines.append(f"- **t̂**: {ifcs_risk_after.get('t_hat', 0):.2f}")
+            lines.append(f"- **R**: {ifcs_risk_after.get('R', 0):.2f}")
+            lines.append("")
         
         # Statistics
         lines.append("### Statistics\n")
@@ -420,7 +521,7 @@ def create_interface():
         
         with gr.Tab("🚀 Quick Start"):
             # Show detected configuration
-            config_status = "✅ Configuration detected from .env" if web_app.env_api_key else "⚠️ No .env configuration detected"
+            config_status = "✅ Configuration detected from .env" if web_app.env_provider else "⚠️ No .env configuration detected"
             provider_status = f"Provider: {web_app.provider_display}" if web_app.env_provider else "Provider: Not configured"
             model_status = f"Model: {web_app.env_model}" if web_app.env_model else "Model: Not configured"
 

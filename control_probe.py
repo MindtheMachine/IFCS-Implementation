@@ -226,6 +226,9 @@ class ControlProbeType2:
         self.Theta = config.Theta
         self.max_history = config.max_history_turns
         self.history: List[InteractionTurn] = []
+        self.awaiting_new_topic = False
+        self.last_topic_tokens = set()
+        self.pending_decision: Optional[CommitmentDecision] = None
         
     def add_turn(self, prompt: str, response: str, risk_score: float):
         """Add turn to interaction history
@@ -346,6 +349,7 @@ class ControlProbeType2:
         # Decision logic
         if R_cum >= self.Theta:
             print(f"[CP Type-2] HALT: R_cum={R_cum:.3f} ≥ Θ={self.Theta:.3f}")
+            self._activate_topic_gate(self.history[-1].prompt, CommitmentDecision.HALT)
             return CommitmentDecision.HALT, debug_info
         
         if semantic_drift or sycophancy:
@@ -356,9 +360,47 @@ class ControlProbeType2:
                 reason.append(f"sycophancy (score={syc_score:.2f})")
             
             print(f"[CP Type-2] RESET: {', '.join(reason)}")
+            self._activate_topic_gate(self.history[-1].prompt, CommitmentDecision.RESET)
             return CommitmentDecision.RESET, debug_info
         
         return CommitmentDecision.PASS, debug_info
+
+    def should_block_prompt(self, prompt: str) -> Tuple[bool, Optional[str], Optional[CommitmentDecision]]:
+        """Block if continuing the same line of thought after a RESET/HALT."""
+        if not self.awaiting_new_topic:
+            return False, None, None
+
+        if self._is_new_topic(prompt):
+            self.awaiting_new_topic = False
+            self.pending_decision = None
+            return False, None, None
+
+        message = self.generate_reset_response(self.pending_decision or CommitmentDecision.RESET)
+        return True, message, (self.pending_decision or CommitmentDecision.RESET)
+
+    def _activate_topic_gate(self, prompt: str, decision: CommitmentDecision):
+        self.awaiting_new_topic = True
+        self.pending_decision = decision
+        self.last_topic_tokens = self._tokenize_prompt(prompt)
+
+    def _is_new_topic(self, prompt: str) -> bool:
+        current_tokens = self._tokenize_prompt(prompt)
+        if not current_tokens or not self.last_topic_tokens:
+            return True
+
+        overlap = len(current_tokens & self.last_topic_tokens)
+        union = len(current_tokens | self.last_topic_tokens)
+        similarity = overlap / union if union else 0.0
+        return similarity < 0.5
+
+    def _tokenize_prompt(self, prompt: str) -> set:
+        tokens = re.findall(r"[a-zA-Z]{4,}", prompt.lower())
+        stopwords = {
+            "this", "that", "with", "from", "your", "have", "what", "would",
+            "should", "could", "about", "please", "think", "being", "their",
+            "there", "which", "where", "when", "while", "these", "those"
+        }
+        return {t for t in tokens if t not in stopwords}
     
     def generate_halt_response(self, reason: Dict) -> str:
         """Generate response when halting interaction
@@ -403,6 +445,16 @@ class ControlProbeType2:
             "• Acknowledge areas of uncertainty honestly"
         ])
         
+        return "\n".join(response_parts)
+
+    def generate_reset_response(self, decision: CommitmentDecision) -> str:
+        """Generate response when repeating the same line of thought."""
+        response_parts = [
+            "⚠️ There is no point in continuing this line of thought.",
+            "Please start a new line of inquiry or provide a different angle.",
+            "",
+            "I will not continue the current thread until you change topics."
+        ]
         return "\n".join(response_parts)
     
     def reset(self):

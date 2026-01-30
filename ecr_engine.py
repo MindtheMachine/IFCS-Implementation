@@ -6,6 +6,7 @@ Based on: Chatterjee, A. (2026b). Evaluative Coherence Regulation (ECR)
 import numpy as np
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 import re
 
 
@@ -109,24 +110,58 @@ class ECREngine:
         self.tau_CCI = config.tau_CCI
         self.weights = (config.alpha, config.beta, config.gamma, config.delta, config.epsilon)
         
-    def generate_candidates(self, prompt: str, llm_call_fn) -> List[str]:
+    def generate_candidates(
+        self,
+        prompt: str,
+        llm_call_fn,
+        num_candidates: Optional[int] = None,
+        llm_provider: Optional[object] = None
+    ) -> List[str]:
         """Generate K candidate responses
         
         Args:
             prompt: Input prompt
             llm_call_fn: Function to call LLM (prompt, temperature) -> response
+            num_candidates: Optional override for candidate count
+            llm_provider: Optional provider instance (for native batch APIs)
             
         Returns:
             List of K candidate responses
         """
-        candidates = []
-        for i in range(self.K):
-            # Vary temperature slightly for diversity
-            temp = 0.7 + (i * 0.1)
-            response = llm_call_fn(prompt, temperature=min(1.0, temp))
-            candidates.append(response)
-        
-        return candidates
+        target_k = num_candidates if num_candidates is not None else self.K
+        if target_k <= 0:
+            return []
+
+        if (
+            llm_provider
+            and hasattr(llm_provider, "capabilities")
+            and llm_provider.capabilities().get("batch")
+        ):
+            return llm_provider.generate_batch(
+                prompt=prompt,
+                n=target_k,
+                max_tokens=2000,
+                temperature=None,
+                top_p=None,
+                system=None,
+                seed=None
+            )
+
+        if not self.config.parallel_candidates or target_k == 1:
+            candidates = []
+            for _ in range(target_k):
+                # Leave temperature policy-driven by the provider.
+                response = llm_call_fn(prompt, temperature=None)
+                candidates.append(response)
+            return candidates
+
+        max_workers = self.config.max_parallel_workers or target_k
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(llm_call_fn, prompt, temperature=None)
+                for _ in range(target_k)
+            ]
+            return [future.result() for future in futures]
     
     def unroll_trajectory(self, candidate: str, prompt: str, llm_call_fn) -> Trajectory:
         """Unroll trajectory over H steps
@@ -152,7 +187,7 @@ class ECREngine:
             continuation_prompt = f"{current_context}\n\n{current_response}\n\nContinue your explanation:"
             
             # Get continuation (shorter)
-            continuation = llm_call_fn(continuation_prompt, temperature=0.5, max_tokens=200)
+            continuation = llm_call_fn(continuation_prompt, temperature=None, max_tokens=200)
             
             # Create evaluative vector
             steps.append(EvaluativeVector.from_response(

@@ -33,6 +33,21 @@ Results will be organized in `Results/{model-name}/`
 
 ---
 
+## ? Provider Capability Matrix
+
+Some features are vendor-specific. The framework will pass options only when supported.
+
+| Provider | temperature | top_p | seed | system | generate_batch |
+|----------|-------------|-------|------|--------|----------------|
+| Anthropic | Yes | Yes | No | Yes | Default (loop) |
+| OpenAI | Yes | Yes | Yes | Yes | Default (loop) |
+| HuggingFace | Yes | Yes | No | Yes | Default (loop) |
+| Ollama | Yes | Yes | No | Yes | Default (loop) |
+
+`generate_batch` currently uses repeated `generate()` calls; it can be upgraded later to true batch APIs where available.
+
+---
+
 ## 📚 Provider-Specific Guides
 
 ### Anthropic Claude (Default)

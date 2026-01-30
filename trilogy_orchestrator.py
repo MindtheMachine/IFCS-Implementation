@@ -6,6 +6,7 @@ Coordinates ECR → Control Probe Type-1 → IFCS → Control Probe Type-2
 from typing import Dict, Tuple, Optional, List
 from dataclasses import dataclass, asdict
 import json
+import re
 from datetime import datetime
 
 from ecr_engine import ECREngine
@@ -17,6 +18,8 @@ from ifcs_engine import IFCSEngine
 class TrilogyResult:
     """Result from trilogy pipeline"""
     final_response: str
+    selected_response: str
+    shaped_response: str
     ecr_fired: bool
     cp_type1_fired: bool
     cp_type1_decision: str
@@ -47,15 +50,17 @@ class TrilogyResult:
 class TrilogyOrchestrator:
     """Main orchestrator for ECR-Control Probe-IFCS pipeline"""
     
-    def __init__(self, config, llm_call_fn):
+    def __init__(self, config, llm_call_fn, llm_provider=None):
         """Initialize trilogy system
         
         Args:
             config: TrilogyConfig instance
             llm_call_fn: Function to call LLM (prompt, temperature, max_tokens) -> response
+            llm_provider: Optional provider instance (for batch capabilities)
         """
         self.config = config
         self.llm_call_fn = llm_call_fn
+        self.llm_provider = llm_provider
         
         # Initialize engines
         self.ecr = ECREngine(config.ecr)
@@ -82,12 +87,55 @@ class TrilogyOrchestrator:
         print("\n" + "="*80)
         print(f"[Trilogy] Processing: {prompt[:100]}...")
         print("="*80)
+
+        block, message, decision = self.cp_type2.should_block_prompt(prompt)
+        if block:
+            processing_time = (datetime.now() - start_time).total_seconds() * 1000
+            return TrilogyResult(
+                final_response=message,
+                selected_response=message,
+                shaped_response=message,
+                ecr_fired=False,
+                cp_type1_fired=False,
+                cp_type1_decision="not_evaluated",
+                ifcs_fired=False,
+                cp_type2_fired=True,
+                cp_type2_decision=decision.value if decision else "reset",
+                ecr_metrics=None,
+                cp_type1_metrics=None,
+                ifcs_metrics=None,
+                cp_type2_metrics={'reason': 'topic_gate'},
+                num_candidates=0,
+                selected_candidate_idx=0,
+                processing_time_ms=processing_time
+            )
         
         # Stage 1: ECR - Generate and select candidates
         print("\n[Stage 1] ECR: Candidate Generation and Selection")
         print("-" * 80)
-        
-        candidates = self.ecr.generate_candidates(prompt, self.llm_call_fn)
+
+        candidate_k = self.config.ecr.K
+        if self.config.ecr.adaptive_k:
+            structural_signals = self.ifcs.prompt_structural_signals(prompt)
+            max_signal = max(structural_signals.values()) if structural_signals else 0.0
+            if max_signal >= self.config.ecr.adaptive_k_high_threshold:
+                candidate_k = self.config.ecr.adaptive_k_high
+                reason = f"high structural risk (max={max_signal:.2f})"
+            elif max_signal >= self.config.ecr.adaptive_k_mid_threshold:
+                candidate_k = self.config.ecr.adaptive_k_mid
+                reason = f"moderate structural risk (max={max_signal:.2f})"
+            else:
+                candidate_k = self.config.ecr.adaptive_k_low
+                reason = f"low structural risk (max={max_signal:.2f})"
+            candidate_k = min(candidate_k, self.config.ecr.K)
+            print(f"[ECR] Adaptive K={candidate_k} based on {reason}")
+
+        candidates = self.ecr.generate_candidates(
+            prompt,
+            self.llm_call_fn,
+            num_candidates=candidate_k,
+            llm_provider=self.llm_provider
+        )
         selected_response, ecr_metrics, ecr_debug = self.ecr.select_best_candidate(
             candidates, prompt, self.llm_call_fn
         )
@@ -122,6 +170,8 @@ class TrilogyOrchestrator:
             
             return TrilogyResult(
                 final_response=final_response,
+                selected_response=selected_response,
+                shaped_response=selected_response,
                 ecr_fired=ecr_fired,
                 cp_type1_fired=cp1_fired,
                 cp_type1_decision=cp1_decision.value,
@@ -196,6 +246,8 @@ class TrilogyOrchestrator:
         
         return TrilogyResult(
             final_response=final_response,
+            selected_response=selected_response,
+            shaped_response=shaped_response,
             ecr_fired=ecr_fired,
             cp_type1_fired=cp1_fired,
             cp_type1_decision=cp1_decision.value,
@@ -240,7 +292,7 @@ class BaselineAgent:
         """
         print(f"\n[Baseline] Processing: {prompt[:100]}...")
         
-        response = self.llm_call_fn(prompt, temperature=0.7)
+        response = self.llm_call_fn(prompt, temperature=None)
         
         print(f"[Baseline] Generated response ({len(response)} chars)")
         
@@ -303,6 +355,8 @@ class ComparisonEngine:
         # Commitment markers analysis
         baseline_markers = ComparisonEngine._count_commitment_markers(baseline_response)
         regulated_markers = ComparisonEngine._count_commitment_markers(regulated_response)
+        selected_markers = ComparisonEngine._count_commitment_markers(regulated_result.selected_response)
+        shaped_markers = ComparisonEngine._count_commitment_markers(regulated_result.shaped_response)
         
         comparison['commitment_markers'] = {
             'baseline': baseline_markers,
@@ -311,6 +365,15 @@ class ComparisonEngine:
                 'universal': baseline_markers['universal'] - regulated_markers['universal'],
                 'authority': baseline_markers['authority'] - regulated_markers['authority'],
                 'certainty': baseline_markers['certainty'] - regulated_markers['certainty']
+            }
+        }
+        comparison['ifcs_marker_delta'] = {
+            'selected': selected_markers,
+            'shaped': shaped_markers,
+            'reduction': {
+                'universal': selected_markers['universal'] - shaped_markers['universal'],
+                'authority': selected_markers['authority'] - shaped_markers['authority'],
+                'certainty': selected_markers['certainty'] - shaped_markers['certainty']
             }
         }
         
@@ -341,6 +404,33 @@ class ComparisonEngine:
                 changes.append("→ No additional intervention beyond ECR selection")
         
         comparison['key_changes'] = changes
+
+        # IFCS risk details (paper-aligned components)
+        ifcs_metrics = regulated_result.ifcs_metrics or {}
+        risk = ifcs_metrics.get('risk')
+        risk_after = ifcs_metrics.get('risk_after')
+        if risk:
+            comparison['ifcs_risk'] = {
+                'e_hat': getattr(risk, 'e_hat', None),
+                's_hat': getattr(risk, 's_hat', None),
+                'a_hat': getattr(risk, 'a_hat', None),
+                't_hat': getattr(risk, 't_hat', None),
+                'R': getattr(risk, 'R', None),
+                'rho': ifcs_metrics.get('rho'),
+                'rho_default': ifcs_metrics.get('rho_default'),
+                'rho_reason': ifcs_metrics.get('rho_reason'),
+                'structural_signals': ifcs_metrics.get('structural_signals'),
+                'threshold_tier': ifcs_metrics.get('threshold_tier'),
+                'adaptive_active': ifcs_metrics.get('adaptive_active')
+            }
+        if risk_after:
+            comparison['ifcs_risk_after'] = {
+                'e_hat': getattr(risk_after, 'e_hat', None),
+                's_hat': getattr(risk_after, 's_hat', None),
+                'a_hat': getattr(risk_after, 'a_hat', None),
+                't_hat': getattr(risk_after, 't_hat', None),
+                'R': getattr(risk_after, 'R', None)
+            }
         
         # Generate summary
         comparison['summary'] = ComparisonEngine._generate_summary(comparison)
@@ -353,12 +443,19 @@ class ComparisonEngine:
         from trilogy_config import UNIVERSAL_MARKERS, AUTHORITY_MARKERS
         
         text_lower = text.lower()
-        
-        universal_count = sum(1 for marker in UNIVERSAL_MARKERS if marker in text_lower)
-        authority_count = sum(1 for marker in AUTHORITY_MARKERS if marker in text_lower)
-        
+
+        def count_markers(markers):
+            total = 0
+            for marker in markers:
+                pattern = r'\\b' + re.escape(marker) + r'\\b'
+                total += len(re.findall(pattern, text_lower))
+            return total
+
+        universal_count = count_markers(UNIVERSAL_MARKERS)
+        authority_count = count_markers(AUTHORITY_MARKERS)
+
         certainty_markers = ['definitely', 'certainly', 'clearly', 'obviously']
-        certainty_count = sum(1 for marker in certainty_markers if marker in text_lower)
+        certainty_count = count_markers(certainty_markers)
         
         return {
             'universal': universal_count,

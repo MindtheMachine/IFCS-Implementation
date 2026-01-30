@@ -5,7 +5,7 @@ Supports multiple LLM providers (Anthropic, OpenAI, HuggingFace, Ollama)
 
 import os
 import time
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Optional
 
 from trilogy_config import TrilogyConfig
 from trilogy_orchestrator import TrilogyOrchestrator, BaselineAgent, ComparisonEngine
@@ -40,13 +40,19 @@ class TrilogyApp:
         self.llm_provider = LLMProviderFactory.create_from_env()
 
         # Initialize agents
-        self.trilogy = TrilogyOrchestrator(config, self.call_llm)
+        self.trilogy = TrilogyOrchestrator(config, self.call_llm, self.llm_provider)
         self.baseline = BaselineAgent(self.call_llm)
 
         provider_name = os.getenv("LLM_PROVIDER", "anthropic")
         print(f"[App] Initialized with provider: {provider_name}, model: {config.model}")
     
-    def call_llm(self, prompt: str, temperature: float = 0.7, max_tokens: int = None) -> str:
+    def call_llm(
+        self,
+        prompt: str,
+        temperature: Optional[float] = None,
+        max_tokens: int = None,
+        top_p: Optional[float] = None
+    ) -> str:
         """Call LLM API (works with any configured provider)
 
         Args:
@@ -59,13 +65,19 @@ class TrilogyApp:
         """
         if max_tokens is None:
             max_tokens = self.config.max_tokens
+        if temperature is None:
+            temperature = self.config.temperature
+        if top_p is None:
+            top_p = self.config.top_p
 
         try:
             # Use the provider abstraction
             response = self.llm_provider.generate(
                 prompt=prompt,
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_tokens=max_tokens,
+                top_p=top_p,
+                seed=self.config.seed
             )
 
             return response

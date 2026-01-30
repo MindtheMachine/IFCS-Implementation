@@ -12,26 +12,61 @@ from pathlib import Path
 class LLMProvider(ABC):
     """Abstract base class for LLM providers"""
 
-    @abstractmethod
     def generate(
         self,
         prompt: str,
         max_tokens: int = 2000,
-        temperature: float = 0.7,
-        system: Optional[str] = None
+        temperature: Optional[float] = 0.7,
+        top_p: Optional[float] = None,
+        system: Optional[str] = None,
+        seed: Optional[int] = None
     ) -> str:
         """Generate response from LLM
 
         Args:
             prompt: User prompt
             max_tokens: Maximum tokens in response
-            temperature: Sampling temperature
+            temperature: Sampling temperature (None = provider default)
+            top_p: Nucleus sampling (None = provider default)
             system: System prompt (optional)
 
         Returns:
             Generated text response
         """
-        pass
+        raise NotImplementedError
+
+    def generate_batch(
+        self,
+        prompt: str,
+        n: int,
+        max_tokens: int = 2000,
+        temperature: Optional[float] = 0.7,
+        top_p: Optional[float] = None,
+        system: Optional[str] = None,
+        seed: Optional[int] = None
+    ) -> List[str]:
+        """Generate multiple candidates (default: n sequential calls)."""
+        return [
+            self.generate(
+                prompt=prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                system=system,
+                seed=seed
+            )
+            for _ in range(n)
+        ]
+
+    def capabilities(self) -> Dict[str, bool]:
+        """Advertise provider feature support."""
+        return {
+            "temperature": True,
+            "top_p": True,
+            "seed": False,
+            "system": True,
+            "batch": False,
+        }
 
     @abstractmethod
     def get_model_name(self) -> str:
@@ -51,17 +86,22 @@ class AnthropicProvider(LLMProvider):
         self,
         prompt: str,
         max_tokens: int = 2000,
-        temperature: float = 0.7,
-        system: Optional[str] = None
+        temperature: Optional[float] = 0.7,
+        top_p: Optional[float] = None,
+        system: Optional[str] = None,
+        seed: Optional[int] = None
     ) -> str:
         messages = [{"role": "user", "content": prompt}]
 
         kwargs = {
             "model": self.model,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "messages": messages
         }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        if top_p is not None:
+            kwargs["top_p"] = top_p
 
         if system:
             kwargs["system"] = system
@@ -71,6 +111,15 @@ class AnthropicProvider(LLMProvider):
 
     def get_model_name(self) -> str:
         return self.model
+
+    def capabilities(self) -> Dict[str, bool]:
+        return {
+            "temperature": True,
+            "top_p": True,
+            "seed": False,
+            "system": True,
+            "batch": False,
+        }
 
 
 class OpenAIProvider(LLMProvider):
@@ -92,8 +141,10 @@ class OpenAIProvider(LLMProvider):
         self,
         prompt: str,
         max_tokens: int = 2000,
-        temperature: float = 0.7,
-        system: Optional[str] = None
+        temperature: Optional[float] = 0.7,
+        top_p: Optional[float] = None,
+        system: Optional[str] = None,
+        seed: Optional[int] = None
     ) -> str:
         messages = []
 
@@ -102,17 +153,35 @@ class OpenAIProvider(LLMProvider):
 
         messages.append({"role": "user", "content": prompt})
 
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens
+        }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        if top_p is not None:
+            kwargs["top_p"] = top_p
+        if seed is not None:
+            kwargs["seed"] = seed
+
         response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature
+            **kwargs
         )
 
         return response.choices[0].message.content
 
     def get_model_name(self) -> str:
         return self.model.replace("/", "-")  # Sanitize for folder names
+
+    def capabilities(self) -> Dict[str, bool]:
+        return {
+            "temperature": True,
+            "top_p": True,
+            "seed": True,
+            "system": True,
+            "batch": False,
+        }
 
 
 class HuggingFaceProvider(LLMProvider):
@@ -134,8 +203,10 @@ class HuggingFaceProvider(LLMProvider):
         self,
         prompt: str,
         max_tokens: int = 2000,
-        temperature: float = 0.7,
-        system: Optional[str] = None
+        temperature: Optional[float] = 0.7,
+        top_p: Optional[float] = None,
+        system: Optional[str] = None,
+        seed: Optional[int] = None
     ) -> str:
         messages = []
 
@@ -148,7 +219,8 @@ class HuggingFaceProvider(LLMProvider):
             messages=messages,
             model=self.model,
             max_tokens=max_tokens,
-            temperature=temperature
+            temperature=temperature if temperature is not None else None,
+            top_p=top_p
         )
 
         return response.choices[0].message.content
@@ -156,6 +228,15 @@ class HuggingFaceProvider(LLMProvider):
     def get_model_name(self) -> str:
         # Convert "meta-llama/Llama-3.1-70B-Instruct" to "Llama-3.1-70B-Instruct"
         return self.model.split("/")[-1]
+
+    def capabilities(self) -> Dict[str, bool]:
+        return {
+            "temperature": True,
+            "top_p": True,
+            "seed": False,
+            "system": True,
+            "batch": False,
+        }
 
 
 class OllamaProvider(LLMProvider):
@@ -177,8 +258,10 @@ class OllamaProvider(LLMProvider):
         self,
         prompt: str,
         max_tokens: int = 2000,
-        temperature: float = 0.7,
-        system: Optional[str] = None
+        temperature: Optional[float] = 0.7,
+        top_p: Optional[float] = None,
+        system: Optional[str] = None,
+        seed: Optional[int] = None
     ) -> str:
         messages = []
 
@@ -187,19 +270,31 @@ class OllamaProvider(LLMProvider):
 
         messages.append({"role": "user", "content": prompt})
 
+        options = {"num_predict": max_tokens}
+        if temperature is not None:
+            options["temperature"] = temperature
+        if top_p is not None:
+            options["top_p"] = top_p
+
         response = self.client.chat(
             model=self.model,
             messages=messages,
-            options={
-                "num_predict": max_tokens,
-                "temperature": temperature
-            }
+            options=options
         )
 
         return response['message']['content']
 
     def get_model_name(self) -> str:
         return self.model
+
+    def capabilities(self) -> Dict[str, bool]:
+        return {
+            "temperature": True,
+            "top_p": True,
+            "seed": False,
+            "system": True,
+            "batch": False,
+        }
 
 
 class LLMProviderFactory:

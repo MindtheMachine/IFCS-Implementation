@@ -43,8 +43,7 @@ pandas>=2.0.0
 # huggingface-hub>=0.20.0
 
 # Ollama (for local models)
-# Uncomment if using: LLM_PROVIDER=ollama
-# ollama>=0.1.0
+ollama>=0.1.0
 
 # ============================================================================
 # Configuration File Support (OPTIONAL)

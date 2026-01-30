@@ -89,8 +89,9 @@ class BenchmarkConfig:
         if self.max_retries < 0:
             raise ValueError(f"max_retries must be >= 0, got {self.max_retries}")
 
-        # Create model-specific output directory
-        output_dir = os.path.join(self.results_dir, self.model_name)
+        # Create model-specific output directory (sanitize for filesystem)
+        safe_model_name = self.model_name.replace("/", "-").replace("\\", "-").replace(":", "-")
+        output_dir = os.path.join(self.results_dir, safe_model_name)
         os.makedirs(output_dir, exist_ok=True)
 
         # Auto-configure output paths if not explicitly set

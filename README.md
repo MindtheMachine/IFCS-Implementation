@@ -159,6 +159,8 @@ Results/
     └── truthfulqa_results.csv
 ```
 
+Provider capabilities vary slightly (e.g., `seed` support), and the framework only passes settings supported by each backend.
+
 See [Documentation/LLM_PROVIDERS.md](Documentation/LLM_PROVIDERS.md) for complete guide.
 
 ### 📊 Benchmark Evaluation
