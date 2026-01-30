@@ -24,6 +24,7 @@ Welcome to the ECR-Control Probe-IFCS Trilogy System documentation. This index w
   - Validation results
   - Next steps for research
 
+- **[OUTPUT_EXAMPLES.md](OUTPUT_EXAMPLES.md)** - Output formats and 36-test `test_results.json` details
 - **[TRANSITION_GUIDE.md](TRANSITION_GUIDE.md)** - Migration and transition information
   - Moving from previous versions
   - Understanding changes

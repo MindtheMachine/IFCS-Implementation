@@ -18,6 +18,16 @@ Results/
 
 This structure allows you to compare results across different LLM models.
 
+## ?? Test Suite Output (36 Taxonomy Cases)
+
+When you run the 36-test taxonomy suite, results are saved to `test_results.json` with per-test details:
+
+- `test_id`, `category`, `expected_mechanism`
+- `mechanisms_fired`
+- `expected_fired` (match indicator)
+- `baseline_response`, `regulated_response`
+- `comparison` (markers, IFCS risk, timing, key changes)
+
 ## 🔍 Example: Single Question Flow
 
 ### Input

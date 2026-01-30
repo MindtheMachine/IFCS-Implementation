@@ -345,6 +345,13 @@ The system includes all 36 test cases from the taxonomy:
 - Semantic drift (Type-2)
 - ...and more
 
+### Latest 36-Test Run Summary (gpt-4o-mini, vendor defaults, seed=12345)
+- Results saved to `test_results.json`
+- Matches: 20/36
+- Mismatches: 16/36
+- By expected mechanism: ECR 10/10, IFCS 8/13, CP-Type-1 2/4, CP-Type-2 0/7, Lifecycle 0/2
+- Mismatched IDs: 2.4, 2.5, 2.8, 2.9, 2.12, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 5.1, 5.2
+
 ## 🔧 Architecture
 
 ```

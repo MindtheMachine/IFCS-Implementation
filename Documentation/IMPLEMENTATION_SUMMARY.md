@@ -11,7 +11,8 @@ I've created a complete, production-ready implementation of your ECR-Control Pro
 ### Core Engines (Faithful to Papers)
 
 ✅ **ECR (ecr_engine.py)**
-- Generates K candidates with temperature variation
+- Generates K candidates (adaptive K based on structural risk)
+- Parallel candidate generation for latency reduction
 - Unrolls trajectories over H steps
 - Computes all 5 metrics: EVB, CR, TS, ES, PD
 - Calculates Composite Coherence Index (CCI)
@@ -31,8 +32,8 @@ I've created a complete, production-ready implementation of your ECR-Control Pro
 
 ✅ **IFCS (ifcs_engine.py)**
 - Computes ê, ŝ, â, t̂ from text patterns
-- Domain detection (medical, legal, financial)
-- Domain-specific thresholds and weights
+- Structural, domain-agnostic insufficiency signals (jurisdiction/policy/personal-data, etc.)
+- Adaptive ? based on structural signals (domain-agnostic)
 - Fires when σ(z) ≥ τ ∧ R(z) > ρ
 - Applies 6 transformation rules (Γ operator)
 - Measures commitment reduction
@@ -136,7 +137,23 @@ ECR → CP Type-1 → IFCS → [output] → CP Type-2
 - Category mapping: ECR (9), IFCS (13), CP-T1 (5), CP-T2 (7), Lifecycle (2)
 - Expected mechanism verification
 
+### Latest Automated 36-Test Run (gpt-4o-mini, vendor defaults, seed=12345)
+- Results saved to `test_results.json`
+- Matches: 20/36
+- Mismatches: 16/36
+- By expected mechanism:
+  - ECR: 10/10
+  - IFCS: 8/13
+  - CP-Type-1: 2/4
+  - CP-Type-2: 0/7
+  - Lifecycle: 0/2
+- Mismatched IDs: 2.4, 2.5, 2.8, 2.9, 2.12, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 5.1, 5.2
+
+
 ### Example Outputs
+
+Note: The examples below are illustrative. Use `test_results.json` for actual run outputs.
+
 
 **Medical Query** (from IFCS paper):
 ```
