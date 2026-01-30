@@ -82,7 +82,6 @@ baseline_output.txt
 regulated_output.txt
 comparison_analysis.txt
 batch_results.json
-test_results.json
 *.log
 
 # Benchmark evaluation outputs
