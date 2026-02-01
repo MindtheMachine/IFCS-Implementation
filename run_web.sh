@@ -10,10 +10,10 @@ echo ""
 # Step 1: Install/Update Dependencies
 echo "[1/4] Installing dependencies from requirements.txt..."
 echo ""
-pip install -r requirements.txt --quiet
+python -m pip install -r requirements.txt --quiet
 if [ $? -ne 0 ]; then
     echo "ERROR: Failed to install dependencies"
-    echo "Please run: pip install -r requirements.txt"
+    echo "Please run: python -m pip install -r requirements.txt"
     read -p "Press Enter to continue..."
     exit 1
 fi

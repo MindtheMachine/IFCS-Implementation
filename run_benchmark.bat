@@ -10,10 +10,10 @@ echo.
 REM Step 1: Install/Update Dependencies
 echo [1/3] Installing dependencies from requirements.txt...
 echo.
-pip install -r requirements.txt --quiet
+python -m pip install -r requirements.txt --quiet
 if errorlevel 1 (
     echo ERROR: Failed to install dependencies
-    echo Please run: pip install -r requirements.txt
+    echo Please run: python -m pip install -r requirements.txt
     pause
     exit /b 1
 )

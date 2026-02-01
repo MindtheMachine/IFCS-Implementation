@@ -102,7 +102,7 @@ echo ============================================================
 echo.
 echo Installing packages from requirements.txt...
 echo.
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 echo.
 if errorlevel 1 (
     echo ERROR: Installation failed
@@ -116,7 +116,7 @@ echo Dependencies installed successfully!
 echo ============================================================
 echo.
 echo Installed packages:
-pip list | findstr /C:"anthropic" /C:"gradio" /C:"numpy" /C:"datasets" /C:"rouge" /C:"tqdm" /C:"pandas"
+python -m pip list | findstr /C:"anthropic" /C:"gradio" /C:"numpy" /C:"datasets" /C:"rouge" /C:"tqdm" /C:"pandas"
 echo.
 pause
 goto :menu

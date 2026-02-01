@@ -96,7 +96,7 @@ install_dependencies() {
     echo "Installing packages from requirements.txt..."
     echo ""
 
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
 
     if [ $? -ne 0 ]; then
         echo "ERROR: Installation failed"
@@ -110,7 +110,7 @@ install_dependencies() {
     echo "============================================================"
     echo ""
     echo "Installed packages:"
-    pip list | grep -E "anthropic|gradio|numpy|datasets|rouge|tqdm|pandas"
+    python -m pip list | grep -E "anthropic|gradio|numpy|datasets|rouge|tqdm|pandas"
     echo ""
     read -p "Press Enter to continue..."
 }
