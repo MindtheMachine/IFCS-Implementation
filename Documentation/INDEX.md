@@ -18,10 +18,11 @@ Welcome to the ECR-Control Probe-IFCS Trilogy System documentation. This index w
 ## 📚 Core Documentation
 
 ### System Understanding
-- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Complete implementation details
-  - What's implemented
-  - Design decisions
-  - Validation results
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Complete implementation details with recent enhancements
+  - What's implemented (including κ(z*) gate and semantic analysis)
+  - Performance optimizations and benchmarking results
+  - Design decisions and architectural improvements
+  - Validation results (9/9 tests passing)
   - Next steps for research
 
 - **[OUTPUT_EXAMPLES.md](OUTPUT_EXAMPLES.md)** - Output formats and 36-test `test_results.json` details
@@ -29,13 +30,28 @@ Welcome to the ECR-Control Probe-IFCS Trilogy System documentation. This index w
   - Moving from previous versions
   - Understanding changes
 
+### Performance Analysis (NEW!)
+- **[../GATE_PERFORMANCE_REPORT.md](../GATE_PERFORMANCE_REPORT.md)** - Comprehensive gate performance analysis
+  - Individual gate benchmarking (κ gate: 16,372 ops/s to ECR: 76 ops/s)
+  - Pipeline throughput analysis (~64 complete cycles/second)
+  - Bottleneck identification (ECR: 84.8% of pipeline time)
+  - Production deployment recommendations
+- **[../ECR_OPTIMIZATION_SUMMARY.md](../ECR_OPTIMIZATION_SUMMARY.md)** - ECR performance improvements (2.9x speedup)
+- **[../ECR_EXISTING_OPTIMIZATIONS_ANALYSIS.md](../ECR_EXISTING_OPTIMIZATIONS_ANALYSIS.md)** - Baseline optimization review
+
+### Architectural Enhancements (NEW!)
+- **[../.kiro/specs/ifcs-generativity-gate/](../.kiro/specs/ifcs-generativity-gate/)** - κ(z*) commitment-actuality gate specification
+  - `requirements.md` - Functional requirements for boundary enforcement
+  - `design.md` - Technical design and implementation approach
+  - `tasks.md` - Implementation tasks (✅ completed)
+
 ### Integration Guides
 - **[CLAUDE_CODE_SETUP.md](CLAUDE_CODE_SETUP.md)** - Using with Claude Code
 - **[GITHUB_SETUP.md](GITHUB_SETUP.md)** - GitHub integration and version control
 
 ## 🎯 Feature-Specific Documentation
 
-### Launcher Scripts (NEW!)
+### Launcher Scripts
 
 **📚 Batch Files & Shell Scripts:**
 - **[LAUNCHER_SCRIPTS.md](LAUNCHER_SCRIPTS.md)** - Complete launcher scripts guide
@@ -44,7 +60,7 @@ Welcome to the ECR-Control Probe-IFCS Trilogy System documentation. This index w
   - Automatic dependency installation and API key validation
   - Troubleshooting and best practices
 
-### Configuration (NEW!)
+### Configuration
 
 **📚 Complete Configuration Guides:**
 - **[CONFIGURATION.md](CONFIGURATION.md)** - Complete configuration guide
@@ -67,7 +83,7 @@ ECR_TAU_CCI=0.70
 CP_TAU=0.38
 ```
 
-### Benchmark Evaluation (NEW!)
+### Benchmark Evaluation
 
 **📚 Complete Documentation:**
 - **[SETUP.md](SETUP.md)** - Installation and configuration
@@ -96,6 +112,21 @@ python trilogy_app.py --benchmark asqa --batch-size 5
 - Mechanism firing details (what fired, when, why)
 - Checkpointing and resume capability
 
+### Performance Testing & Optimization (NEW!)
+
+**📚 Performance Analysis Tools:**
+- **[../simple_gate_benchmark.py](../simple_gate_benchmark.py)** - Individual gate performance testing
+- **[../gate_performance_benchmark.py](../gate_performance_benchmark.py)** - Detailed performance analysis
+- **[../test_commitment_actuality.py](../test_commitment_actuality.py)** - κ(z*) gate validation (9/9 tests passing)
+- **[../simple_ecr_test.py](../simple_ecr_test.py)** - ECR optimization validation
+
+**Performance Characteristics:**
+- **κ(z*) Gate**: 0.061ms (16,372 ops/s) - Ultra-fast boundary detection
+- **Semantic Analyzer**: 0.168ms (5,945 ops/s) - Efficient pattern analysis
+- **Control Probes**: ~0.2-0.3ms (3,784-4,766 ops/s) - Fast safety monitoring
+- **IFCS Engine**: 1.657ms (603 ops/s) - Moderate commitment shaping
+- **ECR Engine**: 13.187ms (76 ops/s) - Comprehensive coherence regulation
+
 ## 📖 Documentation by Use Case
 
 ### "I just want to try the system"
@@ -108,26 +139,34 @@ python trilogy_app.py --benchmark asqa --batch-size 5
 2. Run `run_benchmark.bat` (Windows) or `./run_benchmark.sh` (Linux/Mac)
 3. Or: `python trilogy_app.py --benchmark truthfulqa --batch-size 5`
 
+### "I want to understand performance characteristics"
+1. [../GATE_PERFORMANCE_REPORT.md](../GATE_PERFORMANCE_REPORT.md) - Comprehensive performance analysis
+2. [../ECR_OPTIMIZATION_SUMMARY.md](../ECR_OPTIMIZATION_SUMMARY.md) - Optimization results
+3. Run `python simple_gate_benchmark.py` for live benchmarking
+
 ### "I want to understand how it works"
 1. [README.md](../README.md) - System overview (in root folder)
-2. [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Implementation details
+2. [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Implementation details with enhancements
 3. Read the three research papers (in root directory)
 
 ### "I want to deploy this system"
 1. [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment options
-2. [GITHUB_SETUP.md](GITHUB_SETUP.md) - Version control setup
-3. [SETUP.md](SETUP.md) - Environment configuration
+2. [../GATE_PERFORMANCE_REPORT.md](../GATE_PERFORMANCE_REPORT.md) - Production considerations
+3. [GITHUB_SETUP.md](GITHUB_SETUP.md) - Version control setup
+4. [SETUP.md](SETUP.md) - Environment configuration
 
 ### "I want to contribute or extend"
-1. [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Architecture
+1. [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Architecture with recent enhancements
 2. [GITHUB_SETUP.md](GITHUB_SETUP.md) - Git workflow
-3. Plan file: `C:\Users\achatt0\.claude\plans\spicy-hatching-hamster.md`
+3. [../.kiro/specs/ifcs-generativity-gate/](../.kiro/specs/ifcs-generativity-gate/) - Recent architectural work
 
 ## 🗂️ File Organization
 
 ```
 c:\IFCS Implementation\
 ├── README.md                  # Main documentation (ROOT FOLDER)
+├── GATE_PERFORMANCE_REPORT.md # Performance analysis (ROOT FOLDER)
+├── ECR_OPTIMIZATION_SUMMARY.md # ECR optimizations (ROOT FOLDER)
 ├── Documentation\             # All other documentation (YOU ARE HERE)
 │   ├── INDEX.md              # This file - documentation index
 │   ├── SETUP.md              # Complete setup guide
@@ -137,7 +176,7 @@ c:\IFCS Implementation\
 │   ├── LLM_PROVIDERS.md      # Multi-LLM support guide
 │   ├── BENCHMARK_WORKFLOW.md # Benchmark evaluation workflow
 │   ├── OUTPUT_EXAMPLES.md    # Output format examples
-│   ├── IMPLEMENTATION_SUMMARY.md  # Implementation details
+│   ├── IMPLEMENTATION_SUMMARY.md  # Implementation details (enhanced)
 │   ├── DEPLOYMENT.md         # Deployment guide
 │   ├── WINDOWS_SETUP.md      # Windows-specific setup
 │   ├── WINDOWS_QUICKSTART.md # Windows quick start
@@ -145,7 +184,16 @@ c:\IFCS Implementation\
 │   ├── CLAUDE_CODE_SETUP.md  # Claude Code integration
 │   └── TRANSITION_GUIDE.md   # Migration guide
 │
+├── .kiro/specs/ifcs-generativity-gate/  # κ(z*) gate specification
+│   ├── requirements.md       # Functional requirements
+│   ├── design.md            # Technical design
+│   └── tasks.md             # Implementation tasks (completed)
+│
 ├── *.py                      # Python implementation files
+├── test_commitment_actuality.py  # κ(z*) gate tests (9/9 passing)
+├── simple_gate_benchmark.py # Gate performance benchmarking
+├── ecr_optimizations.py     # ECR performance enhancements
+├── semantic_analyzer.py     # Semantic analysis engine
 ├── *.bat                     # Windows batch launchers
 ├── *.sh                      # Linux/Mac shell scripts
 ├── requirements.txt          # Dependencies
@@ -185,6 +233,10 @@ python trilogy_app.py --test-suite
 # Benchmark evaluation
 python trilogy_app.py --benchmark truthfulqa --batch-size 5
 python trilogy_app.py --benchmark asqa --batch-size 5
+
+# Performance benchmarking (NEW!)
+python simple_gate_benchmark.py
+python test_commitment_actuality.py
 ```
 
 ## 📊 Benchmark Datasets
@@ -212,8 +264,16 @@ See [SETUP.md](SETUP.md) for troubleshooting:
 - Rate limiting
 - Memory issues
 
+### Performance Issues
+See [../GATE_PERFORMANCE_REPORT.md](../GATE_PERFORMANCE_REPORT.md) for:
+- Performance optimization strategies
+- Bottleneck identification
+- Production deployment considerations
+- Tiered processing options
+
 ### Documentation Questions
 - System architecture → [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
+- Performance analysis → [../GATE_PERFORMANCE_REPORT.md](../GATE_PERFORMANCE_REPORT.md)
 - Quick setup → [QUICKSTART.md](QUICKSTART.md) or [WINDOWS_QUICKSTART.md](WINDOWS_QUICKSTART.md)
 - Deployment → [DEPLOYMENT.md](DEPLOYMENT.md)
 - Git workflow → [GITHUB_SETUP.md](GITHUB_SETUP.md)
@@ -226,12 +286,21 @@ The three foundational papers are in the root directory:
 
 ## 📝 Version Information
 
-- **Current Version**: 1.1.0 (with benchmark evaluation)
+- **Current Version**: 1.2.0 (with performance optimizations and architectural enhancements)
 - **License**: Apache 2.0
 - **Author**: Arijit Chatterjee (ORCID: 0009-0006-5658-4449)
 - **Repository**: https://github.com/MindtheMachine/IFCS-Implementation
 
 ## 🔄 Recent Updates
+
+### Version 1.2.0 - Performance & Architecture Enhancements (2026-01-30)
+- ✅ **κ(z*) Commitment-Actuality Gate**: Ultra-fast boundary detection (16,372 ops/s)
+- ✅ **Semantic Analysis Engine**: Replaces brittle text matching (5,945 ops/s)
+- ✅ **Comprehensive Performance Analysis**: Gate-level benchmarking completed
+- ✅ **ECR Optimizations**: 2.9x speedup through intelligent caching
+- ✅ **C6 Architectural Compliance**: Domain-agnostic core with emergent sensitivity
+- ✅ **Enhanced Testing**: 9/9 commitment-actuality tests passing
+- ✅ **Production Readiness**: Tiered processing strategies validated
 
 ### Version 1.1.0 - Benchmark Integration (2026-01-29)
 - ✅ Added TruthfulQA benchmark evaluation
@@ -253,3 +322,5 @@ The three foundational papers are in the root directory:
 ---
 
 **Need help?** Start with [QUICKSTART.md](QUICKSTART.md) or [WINDOWS_QUICKSTART.md](WINDOWS_QUICKSTART.md)!
+
+**Want performance details?** Check [../GATE_PERFORMANCE_REPORT.md](../GATE_PERFORMANCE_REPORT.md)!

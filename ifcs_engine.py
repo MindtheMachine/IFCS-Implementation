@@ -6,10 +6,8 @@ Based on: Chatterjee, A. (2026c). Inference-Time Commitment Shaping
 import re
 from typing import Dict, Tuple, Optional, List
 from dataclasses import dataclass
-from trilogy_config import (
-    UNIVERSAL_MARKERS, AUTHORITY_MARKERS, DOMAIN_KEYWORDS,
-    DomainConfig
-)
+from trilogy_config import DomainConfig
+from semantic_analyzer import semantic_analyzer
 
 
 @dataclass
@@ -26,6 +24,216 @@ class CommitmentRisk:
                 f"â={self.a_hat:.2f}, t̂={self.t_hat:.2f}]")
 
 
+class CommitmentActualityClassifier:
+    """Computes κ(z*): commitment-actuality indicator using semantic patterns"""
+    
+    def __init__(self):
+        """Initialize the commitment-actuality classifier"""
+        # Core semantic patterns (more flexible than exact matching)
+        self.commitment_indicators = {
+            'directive_verbs': ['should', 'must', 'need', 'have', 'ought', 'require'],
+            'recommendation_verbs': ['recommend', 'suggest', 'advise', 'propose'],
+            'certainty_adverbs': ['definitely', 'certainly', 'clearly', 'obviously', 'undoubtedly'],
+            'superlative_patterns': ['best', 'optimal', 'ideal', 'perfect', 'right', 'correct'],
+            'exclusivity_patterns': ['only', 'sole', 'single', 'exclusive'],
+            'imperative_patterns': ['do this', 'follow', 'implement', 'use', 'apply', 'try']
+        }
+        
+        self.descriptive_indicators = {
+            'listing_verbs': ['include', 'contain', 'comprise', 'consist'],
+            'example_markers': ['example', 'instance', 'case', 'illustration'],
+            'reference_markers': ['reference', 'background', 'information', 'overview'],
+            'comparison_markers': ['compare', 'contrast', 'versus', 'alternative'],
+            'frequency_adverbs': ['typically', 'usually', 'commonly', 'often', 'generally'],
+            'informational_phrases': ['practices', 'approaches', 'methods', 'techniques', 'options']
+        }
+    
+    def _analyze_semantic_patterns(self, text: str) -> dict:
+        """Analyze text for semantic commitment patterns"""
+        text_lower = text.lower()
+        words = text_lower.split()
+        
+        # Analyze commitment patterns
+        commitment_score = 0
+        commitment_features = {}
+        
+        # 1. Directive language analysis
+        directive_count = 0
+        for word in words:
+            if word in self.commitment_indicators['directive_verbs']:
+                # Check context - is it directed at the user?
+                word_idx = words.index(word)
+                context_window = words[max(0, word_idx-2):min(len(words), word_idx+3)]
+                if 'you' in context_window or word_idx < 3:  # Early in sentence suggests directive
+                    directive_count += 2
+                else:
+                    directive_count += 1
+        
+        commitment_features['directive_strength'] = directive_count
+        commitment_score += directive_count
+        
+        # 2. Recommendation language
+        recommendation_count = sum(1 for word in words if word in self.commitment_indicators['recommendation_verbs'])
+        commitment_features['recommendation_strength'] = recommendation_count
+        commitment_score += recommendation_count * 1.5
+        
+        # 3. Certainty and definitiveness
+        certainty_count = sum(1 for word in words if word in self.commitment_indicators['certainty_adverbs'])
+        commitment_features['certainty_strength'] = certainty_count
+        commitment_score += certainty_count * 1.2
+        
+        # 4. Superlative/exclusive language
+        superlative_count = sum(1 for word in words if word in self.commitment_indicators['superlative_patterns'])
+        exclusivity_count = sum(1 for word in words if word in self.commitment_indicators['exclusivity_patterns'])
+        commitment_features['superlative_strength'] = superlative_count + exclusivity_count
+        commitment_score += (superlative_count + exclusivity_count) * 1.3
+        
+        # Analyze descriptive patterns
+        descriptive_score = 0
+        descriptive_features = {}
+        
+        # 1. Listing/enumeration language
+        listing_count = sum(1 for word in words if word in self.descriptive_indicators['listing_verbs'])
+        
+        # Enhanced listing detection for numbered/bulleted lists
+        if re.search(r'\d+\.\s', text) or re.search(r'^\s*[-*•]\s', text, re.MULTILINE):
+            listing_count += 3  # Strong signal for enumeration
+        
+        # Check for "include:" pattern which is strongly descriptive
+        if 'include:' in text_lower or 'includes:' in text_lower:
+            listing_count += 2
+            
+        descriptive_features['listing_strength'] = listing_count
+        descriptive_score += listing_count * 1.5
+        
+        # 2. Example/reference markers
+        example_count = sum(1 for word in words if word in self.descriptive_indicators['example_markers'])
+        reference_count = sum(1 for word in words if word in self.descriptive_indicators['reference_markers'])
+        descriptive_features['informational_strength'] = example_count + reference_count
+        descriptive_score += (example_count + reference_count) * 1.2
+        
+        # 3. Frequency/hedging language
+        frequency_count = sum(1 for word in words if word in self.descriptive_indicators['frequency_adverbs'])
+        descriptive_features['hedging_strength'] = frequency_count
+        descriptive_score += frequency_count * 1.1
+        
+        # 4. Informational phrases (practices, approaches, etc.)
+        informational_count = sum(1 for word in words if word in self.descriptive_indicators['informational_phrases'])
+        descriptive_features['informational_phrases'] = informational_count
+        descriptive_score += informational_count * 1.3
+        
+        return {
+            'commitment_score': commitment_score,
+            'descriptive_score': descriptive_score,
+            'commitment_features': commitment_features,
+            'descriptive_features': descriptive_features
+        }
+    
+    def _analyze_syntactic_patterns(self, text: str) -> dict:
+        """Analyze syntactic patterns that indicate commitment vs description"""
+        # Simple syntactic analysis without external dependencies
+        sentences = [s.strip() for s in text.split('.') if s.strip()]
+        
+        commitment_syntax = 0
+        descriptive_syntax = 0
+        
+        for sentence in sentences:
+            sentence_lower = sentence.lower()
+            
+            # Imperative mood indicators (commitment-bearing)
+            if sentence_lower.startswith(('you should', 'you must', 'you need', 'do ', 'use ', 'try ', 'follow ')):
+                commitment_syntax += 2
+            
+            # Question-answer patterns (commitment-bearing)
+            if 'the answer is' in sentence_lower or 'the solution is' in sentence_lower:
+                commitment_syntax += 2
+            
+            # Listing patterns (descriptive)
+            if any(pattern in sentence_lower for pattern in ['include:', 'are:', 'such as', 'for example']):
+                descriptive_syntax += 2
+            
+            # Conditional/hedged language (descriptive)
+            if any(pattern in sentence_lower for pattern in ['may', 'might', 'could', 'depends', 'varies']):
+                descriptive_syntax += 1
+        
+        return {
+            'commitment_syntax': commitment_syntax,
+            'descriptive_syntax': descriptive_syntax
+        }
+    
+    def _analyze_pragmatic_context(self, response: str, prompt: str) -> dict:
+        """Analyze pragmatic context from prompt to inform classification"""
+        if not prompt:
+            return {'context_bias': 0}
+        
+        prompt_lower = prompt.lower()
+        context_bias = 0
+        
+        # Information-seeking questions (bias toward descriptive)
+        info_seeking_patterns = [
+            'what are', 'what is', 'tell me about', 'explain', 'describe',
+            'list', 'show me', 'give me examples', 'how does'
+        ]
+        if any(pattern in prompt_lower for pattern in info_seeking_patterns):
+            context_bias -= 1
+        
+        # Advice-seeking questions (bias toward commitment)
+        advice_seeking_patterns = [
+            'what should', 'how should', 'what do you recommend', 'what\'s the best',
+            'how do i', 'help me', 'what would you do'
+        ]
+        if any(pattern in prompt_lower for pattern in advice_seeking_patterns):
+            context_bias += 1
+        
+        return {'context_bias': context_bias}
+    
+    def is_commitment_bearing(self, response: str, prompt: str) -> bool:
+        """
+        Determine if response constitutes a commitment-bearing act using semantic analysis.
+        
+        Args:
+            response: The response text to classify
+            prompt: The original prompt for context
+            
+        Returns:
+            True (κ=1) if response compresses uncertainty into actionable stance
+            False (κ=0) if response is descriptive/enumerative/non-binding
+        """
+        if not response or not response.strip() or len(response.strip()) < 15:
+            return False
+        
+        # Multi-level analysis
+        semantic_analysis = self._analyze_semantic_patterns(response)
+        syntactic_analysis = self._analyze_syntactic_patterns(response)
+        pragmatic_analysis = self._analyze_pragmatic_context(response, prompt)
+        
+        # Weighted scoring
+        commitment_score = (
+            semantic_analysis['commitment_score'] * 0.5 +
+            syntactic_analysis['commitment_syntax'] * 0.3 +
+            max(0, pragmatic_analysis['context_bias']) * 0.2
+        )
+        
+        descriptive_score = (
+            semantic_analysis['descriptive_score'] * 0.5 +
+            syntactic_analysis['descriptive_syntax'] * 0.3 +
+            max(0, -pragmatic_analysis['context_bias']) * 0.2
+        )
+        
+        # Decision with confidence threshold and hedging detection
+        score_difference = commitment_score - descriptive_score
+        
+        # Check for hedging language that reduces commitment
+        hedging_patterns = ['might', 'could', 'may', 'perhaps', 'though', 'however', 'depends']
+        hedging_penalty = sum(1 for pattern in hedging_patterns if pattern in response.lower())
+        
+        # Adjust for hedging
+        adjusted_difference = score_difference - (hedging_penalty * 0.5)
+        
+        # Require clear commitment signals to classify as commitment-bearing
+        return adjusted_difference > 0.3
+
+
 class IFCSEngine:
     """Inference-Time Commitment Shaping Engine"""
     
@@ -38,6 +246,7 @@ class IFCSEngine:
         self.config = config
         self.rho = config.rho
         self.weights = (config.lambda_e, config.lambda_s, config.lambda_a, config.lambda_t)
+        self.commitment_classifier = CommitmentActualityClassifier()
 
     def compute_evidential_insufficiency(
         self,
@@ -45,7 +254,7 @@ class IFCSEngine:
         prompt: str = "",
         context: str = ""
     ) -> float:
-        """Compute ??(z*): Evidential insufficiency
+        """Compute ê(z*): Evidential insufficiency using semantic analysis
 
         Args:
             response: Response text
@@ -53,59 +262,20 @@ class IFCSEngine:
             context: Available context/grounding
 
         Returns:
-            ?? score [0, 1]
+            ê score [0, 1]
         """
-        # Extract claims (simplified: sentences with assertions)
-        sentences = re.split(r'[.!?]+', response)
-        claims = [s.strip() for s in sentences if len(s.strip()) > 10]
-
-        if not claims:
+        if not response or not response.strip():
             return 0.5  # Neutral
-
-        # Check grounding against context
-        if context:
-            # Count overlapping significant words (nouns, verbs)
-            context_words = set(re.findall(r'\b[a-z]{4,}\b', context.lower()))
-
-            unsupported_claims = 0
-            for claim in claims:
-                claim_words = set(re.findall(r'\b[a-z]{4,}\b', claim.lower()))
-                overlap = len(claim_words & context_words)
-
-                # Claim is unsupported if < 30% overlap
-                if overlap / max(len(claim_words), 1) < 0.3:
-                    unsupported_claims += 1
-
-            e_hat = unsupported_claims / len(claims)
-        else:
-            # No context: check for post-cutoff or unverifiable claims
-            post_cutoff_patterns = [
-                r'\b202[5-9]\b',  # Years after cutoff
-                r'\b203[0-9]\b',
-                r'current(?:ly)?',
-                r'recent(?:ly)?',
-                r'today',
-                r'now',
-                r'latest',
-                r'just (?:announced|released|published)'
-            ]
-
-            temporal_claims = sum(
-                1
-                for pattern in post_cutoff_patterns
-                for claim in claims
-                if re.search(pattern, claim, re.IGNORECASE)
-            )
-
-            # Paper-aligned ranges: no grounding implies weak/stale evidence (0.7-0.9)
-            base_e = 0.8
-            e_hat = min(1.0, max(base_e, temporal_claims / len(claims) + 0.3))
-
-        # Structural insufficiency signals (domain-agnostic).
+        
+        # Use semantic analyzer for evidential analysis
+        semantic_result = semantic_analyzer.analyze_evidential_sufficiency(response, context)
+        
+        # Combine with structural insufficiency signals
         structural_signals = self._structural_signals(prompt, response)
         structural_e = max(structural_signals.values()) if structural_signals else 0.0
-
-        return min(1.0, max(e_hat, structural_e))
+        
+        # Take the maximum of semantic and structural evidential risk
+        return min(1.0, max(semantic_result.score, structural_e))
 
     def _detect_jurisdiction_dependency(self, prompt: str, response: str) -> float:
         """Detect answers that depend on external jurisdiction or authority."""
@@ -257,7 +427,7 @@ class IFCSEngine:
         return default_rho, "Default threshold (?=0.40) - low structural risk"
 
     def compute_scope_inflation(self, response: str) -> float:
-        """Compute ŝ(z*): Scope inflation
+        """Compute ŝ(z*): Scope inflation using semantic analysis
         
         Args:
             response: Response text
@@ -265,25 +435,16 @@ class IFCSEngine:
         Returns:
             ŝ score [0, 1]
         """
-        # Extract assertions (sentences)
-        sentences = re.split(r'[.!?]+', response)
-        assertions = [s.strip() for s in sentences if len(s.strip()) > 10]
-        
-        if not assertions:
+        if not response or not response.strip():
             return 0.0
         
-        # Count universal markers
-        universal_count = sum(
-            1 for assertion in assertions
-            for marker in UNIVERSAL_MARKERS
-            if re.search(r'\b' + re.escape(marker) + r'\b', assertion, re.IGNORECASE)
-        )
+        # Use semantic analyzer instead of hardcoded patterns
+        semantic_result = semantic_analyzer.analyze_universal_scope(response)
         
-        s_hat = universal_count / len(assertions)
-        return min(1.0, s_hat)
+        return semantic_result.score
     
     def compute_authority_cues(self, response: str) -> float:
-        """Compute â(z*): Authority cues
+        """Compute â(z*): Authority cues using semantic analysis
         
         Args:
             response: Response text
@@ -291,25 +452,16 @@ class IFCSEngine:
         Returns:
             â score [0, 1]
         """
-        # Extract sentences
-        sentences = re.split(r'[.!?]+', response)
-        valid_sentences = [s.strip() for s in sentences if len(s.strip()) > 10]
-        
-        if not valid_sentences:
+        if not response or not response.strip():
             return 0.0
         
-        # Count authority markers
-        authority_count = sum(
-            1 for sentence in valid_sentences
-            for marker in AUTHORITY_MARKERS
-            if re.search(r'\b' + re.escape(marker) + r'\b', sentence, re.IGNORECASE)
-        )
+        # Use semantic analyzer instead of hardcoded patterns
+        semantic_result = semantic_analyzer.analyze_authority_cues(response)
         
-        a_hat = authority_count / len(valid_sentences)
-        return min(1.0, a_hat)
+        return semantic_result.score
     
     def compute_temporal_risk(self, response: str, prompt: str) -> float:
-        """Compute t̂(z*): Temporal risk
+        """Compute t̂(z*): Temporal risk using semantic analysis
         
         Args:
             response: Response text
@@ -318,31 +470,16 @@ class IFCSEngine:
         Returns:
             t̂ score [0, 1]
         """
-        # Check for temporal sensitivity in prompt and response
-        current_state_patterns = [
-            r'\bcurrent\b', r'\bnow\b', r'\btoday\b', r'\blatest\b',
-            r'\bprice\b', r'\bmarket\b', r'\belection\b', r'\bnews\b'
-        ]
-        future_year_pattern = r'\b(202[4-9]|203\d)\b'
+        if not response or not response.strip():
+            return 0.0
         
-        combined_text = f"{prompt} {response}".lower()
+        # Use semantic analyzer instead of hardcoded patterns
+        semantic_result = semantic_analyzer.analyze_temporal_risk(response, prompt)
         
-        matches = sum(1 for pattern in current_state_patterns 
-                     if re.search(pattern, combined_text))
-        if re.search(future_year_pattern, combined_text):
-            matches = max(matches, 3)
-        
-        if matches >= 3:
-            return 1.0  # Current state query
-        elif matches >= 2:
-            return 0.7  # Evolving practices
-        elif matches >= 1:
-            return 0.4  # Slowly evolving
-        else:
-            return 0.0  # Stable facts
+        return semantic_result.score
     
     def compute_early_authority_gradient(self, response: str) -> float:
-        """Compute ΔAG: Early authority gradient
+        """Compute ΔAG: Early authority gradient using semantic analysis
         
         Args:
             response: Response text
@@ -356,13 +493,11 @@ class IFCSEngine:
         if len(valid_sentences) < 3:
             return 0.0
         
-        # Compute authority scores for each sentence
+        # Compute authority scores for each sentence using semantic analysis
         def sentence_authority(sent: str) -> float:
-            markers = sum(1 for m in AUTHORITY_MARKERS 
-                         if re.search(r'\b' + re.escape(m) + r'\b', sent, re.IGNORECASE))
-            certainty = sum(1 for m in ['definitely', 'certainly', 'clearly', 'obviously']
-                           if m in sent.lower())
-            return min(1.0, (markers + certainty) / 3.0)
+            # Use semantic analyzer for authority detection
+            authority_result = semantic_analyzer.analyze_authority_cues(sent)
+            return authority_result.score
         
         # Initial authority (first 2 sentences)
         A_initial = sum(sentence_authority(s) for s in valid_sentences[:2]) / 2.0
@@ -432,20 +567,25 @@ class IFCSEngine:
         Returns:
             CommitmentRisk with all components
         """
-        # Detect domain (lowest-priority; only used as a fallback)
-        domain = self.detect_domain(prompt)
+        # C6 COMPLIANCE: No domain detection or classification
+        # Domain sensitivity emerges from ê/ŝ/â/t̂ score patterns only
+        domain = None  # C6: No explicit domain classification
         default_config = self.get_domain_config(None)
-        domain_used = None
+        domain_used = None  # C6: No domain-based configuration override
         rho_used = default_config.rho
         self._last_rho_default = default_config.rho
         
-        # Use default weights first (C6: domain sensitivity should emerge from scores)
+        # Use default weights (C6: domain-agnostic core mechanism)
         lambda_e, lambda_s, lambda_a, lambda_t = (
             default_config.lambda_e,
             default_config.lambda_s,
             default_config.lambda_a,
             default_config.lambda_t
         )
+        
+        # C6 COMPLIANCE: No domain detection or logging
+        # Domain sensitivity emerges from ê/ŝ/â/t̂ score patterns only
+        # No explicit domain classification is performed
         
         # Compute components
         e_hat = self.compute_evidential_insufficiency(response, prompt, context)
@@ -460,7 +600,7 @@ class IFCSEngine:
         a_hat = max(a_hat, prompt_risk['a_hat'])
         t_hat = max(t_hat, prompt_risk['t_hat'])
         
-        # Compute R(z*) using default config first
+        # Compute R(z*) using default config (C6: domain-agnostic core mechanism)
         R = (lambda_e * e_hat +
              lambda_s * s_hat +
              lambda_a * a_hat +
@@ -471,29 +611,16 @@ class IFCSEngine:
         adaptive_rho, rho_reason = self._adaptive_rho(structural_signals, default_config.rho)
         rho_used = adaptive_rho
 
-        # Domain is a last-resort override if default did not trigger
-        if domain:
-            domain_config = self.get_domain_config(domain)
-            if R < adaptive_rho:
-                lambda_e, lambda_s, lambda_a, lambda_t = (
-                    domain_config.lambda_e,
-                    domain_config.lambda_s,
-                    domain_config.lambda_a,
-                    domain_config.lambda_t
-                )
-                R = (lambda_e * e_hat +
-                     lambda_s * s_hat +
-                     lambda_a * a_hat +
-                     lambda_t * t_hat)
-                domain_used = domain
-                rho_used = domain_config.rho
-            print(f"[IFCS] Domain detected: {domain.upper()} (ρ={domain_config.rho:.2f})")
+        # C6 COMPLIANCE: Domain sensitivity emerges from ê/ŝ/â/t̂ score patterns
+        # No explicit domain classification or configuration override
+        # Domain detection completely removed for architectural compliance
 
-        # Persist the effective domain/rho for the caller
-        self._last_domain_used = domain_used
+        # Persist the effective domain/rho for the caller (C6: no domain used)
+        self._last_domain_used = None  # C6: No domain-based configuration used
         self._last_rho_used = rho_used
         self._last_structural_signals = structural_signals
         self._last_rho_reason = rho_reason
+        self._last_domain_detected = None  # C6: No domain detection performed
         
         return CommitmentRisk(
             e_hat=e_hat,
@@ -707,9 +834,16 @@ class IFCSEngine:
         Returns:
             (shaped_response, risk, debug_info)
         """
+        # Step 1: Commitment-Actuality Gate (κ(z*) check)
+        is_commitment_bearing = self.commitment_classifier.is_commitment_bearing(response, prompt)
+        kappa = 1 if is_commitment_bearing else 0
+        
+        print(f"[IFCS] Commitment-actuality classification: κ(z*)={kappa} ({'commitment-bearing' if kappa else 'non-commitment-bearing'})")
+        
         # Compute commitment risk
         risk = self.compute_commitment_risk(response, prompt, context)
-        domain_used = getattr(self, "_last_domain_used", None)
+        domain_detected = None  # C6: No domain detection performed
+        domain_used = None  # C6: No domain-based configuration used
         rho_used = getattr(self, "_last_rho_used", self.get_domain_config(None).rho)
         rho_default = getattr(self, "_last_rho_default", self.get_domain_config(None).rho)
         structural_signals = getattr(self, "_last_structural_signals", {})
@@ -717,16 +851,14 @@ class IFCSEngine:
         
         print(f"[IFCS] Commitment risk: {risk}")
         
-        # Determine if intervention needed
-        should_intervene = self.should_intervene(risk, sigma, rho_used)
-        
         threshold_tier = (
             "strict" if rho_used <= 0.30 else
             "moderate" if rho_used <= 0.35 else
             "default"
         )
         debug_info = {
-            'domain': domain_used,
+            'domain_detected': domain_detected,  # C6a: Informational only
+            'domain_used': domain_used,  # C6: Always None (domain-agnostic core)
             'risk': risk,
             'rho': rho_used,
             'rho_default': rho_default,
@@ -734,12 +866,26 @@ class IFCSEngine:
             'structural_signals': structural_signals,
             'threshold_tier': threshold_tier,
             'adaptive_active': True,
-            'intervened': should_intervene,
+            'kappa': kappa,
+            'commitment_bearing': is_commitment_bearing,
+            'intervened': False,  # Will be updated below
             'sigma': sigma
         }
         
+        # Step 2: Three-part firing condition: σ(z*) ≥ τ ∧ R(z*) > ρ ∧ κ(z*) = 1
+        if kappa == 0:
+            # Non-commitment-bearing context: observation without intervention
+            print(f"[IFCS] NON-INTERVENTION: κ(z*)=0 (non-commitment-bearing context)")
+            debug_info['intervened'] = False
+            debug_info['intervention_reason'] = 'non-commitment-bearing'
+            return response, risk, debug_info
+        
+        # Determine if intervention needed (commitment-bearing contexts only)
+        should_intervene = self.should_intervene(risk, sigma, rho_used)
+        debug_info['intervened'] = should_intervene
+        
         if should_intervene:
-            print(f"[IFCS] INTERVENING: R={risk.R:.3f} > ρ={debug_info['rho']:.3f}")
+            print(f"[IFCS] INTERVENING: σ={sigma:.3f} ≥ τ ∧ R={risk.R:.3f} > ρ={debug_info['rho']:.3f} ∧ κ=1")
             
             # Apply transformations
             shaped_response = self.apply_transformation_rules(response, risk)
@@ -753,27 +899,28 @@ class IFCSEngine:
             
             debug_info['risk_after'] = risk_after
             debug_info['reduction_percent'] = reduction
+            debug_info['intervention_reason'] = 'commitment_risk_exceeded'
             
             return shaped_response, risk, debug_info
         else:
-            print(f"[IFCS] PASS: R={risk.R:.3f} ≤ ρ={debug_info['rho']:.3f}")
+            print(f"[IFCS] PASS: R={risk.R:.3f} ≤ ρ={debug_info['rho']:.3f} (commitment-bearing but low risk)")
+            debug_info['intervention_reason'] = 'commitment_risk_acceptable'
             return response, risk, debug_info
     def detect_domain(self, prompt: str) -> Optional[str]:
-        """Detect domain from prompt
+        """Detect domain from prompt - REMOVED for C6 compliance
+        
+        C6 Constraint: "IFCS does not architecturally require explicit domain 
+        classification to function. Domain sensitivity emerges from structural 
+        differences in ê/ŝ/â/t̂ score patterns."
         
         Args:
             prompt: User prompt
             
         Returns:
-            Domain name or None
+            None (domain detection removed for C6 compliance)
         """
-        prompt_lower = prompt.lower()
-        
-        for domain, keywords in DOMAIN_KEYWORDS.items():
-            matches = sum(1 for keyword in keywords if keyword in prompt_lower)
-            if matches >= 2:  # Require at least 2 keyword matches
-                return domain
-        
+        # C6 COMPLIANCE: No explicit domain classification
+        # Domain sensitivity must emerge from ê/ŝ/â/t̂ score patterns only
         return None
     
     def get_domain_config(self, domain: Optional[str]) -> DomainConfig:

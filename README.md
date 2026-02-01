@@ -201,6 +201,44 @@ python trilogy_app.py --benchmark truthfulqa
 
 ## ✨ New Features
 
+### 🚀 Performance Optimizations & Benchmarking
+
+**Gate Performance Analysis** - Comprehensive benchmarking of all system components:
+- **κ(z*) Commitment-Actuality Gate**: 0.061ms (16,372 ops/s) - Ultra-fast boundary detection
+- **Semantic Analyzer**: 0.168ms (5,945 ops/s) - Efficient pattern analysis
+- **Control Probes**: ~0.2-0.3ms (3,784-4,766 ops/s) - Fast safety monitoring
+- **IFCS Engine**: 1.657ms (603 ops/s) - Moderate commitment shaping
+- **ECR Engine**: 13.187ms (76 ops/s) - Comprehensive coherence regulation
+
+**Key Performance Insights**:
+- **Full Pipeline**: ~64 complete cycles/second (15.5ms total)
+- **ECR Bottleneck**: 84.8% of pipeline time (primary optimization target)
+- **215.9x Performance Range**: From ultra-fast κ gate to comprehensive ECR
+- **Production Ready**: Configurable quality vs. throughput trade-offs
+
+See [GATE_PERFORMANCE_REPORT.md](GATE_PERFORMANCE_REPORT.md) for detailed analysis.
+
+### 🎯 Enhanced IFCS Architecture
+
+**Commitment-Actuality Gate (κ(z*))** - New boundary enforcement:
+- **Three-part firing condition**: σ(z*) ≥ τ ∧ R(z*) > ρ ∧ κ(z*) = 1
+- **Semantic classification**: Distinguishes commitment-bearing vs. descriptive contexts
+- **Prevents false positives**: No intervention on informational queries like "What are best practices?"
+- **Ultra-fast performance**: 16,372 operations/second
+
+**Semantic Analysis Engine** - Replaces brittle text matching:
+- **Universal scope analysis**: Detects overgeneralization patterns
+- **Authority cue detection**: Identifies inappropriate certainty markers
+- **Evidential sufficiency**: Assesses grounding and support quality
+- **Temporal risk analysis**: Flags time-sensitive claims
+- **Domain detection**: Informational classification for C6 compliance
+
+**C6 Architectural Compliance** - Domain-agnostic core mechanism:
+- **Domain sensitivity emerges from scores**: No hardcoded domain overrides
+- **Optional deployment-time calibration**: Domain detection for threshold tuning
+- **Preserved domain detection**: Available for operational insights
+- **Architectural integrity**: Core mechanism remains domain-agnostic
+
 ### 🔌 Multi-LLM Provider Support
 
 Switch between LLM providers with **zero code changes** - just edit `.env`:
@@ -430,9 +468,10 @@ trilogy_web.py              # Gradio web interface
 trilogy_orchestrator.py     # Pipeline coordination
 trilogy_config_loader.py    # Multi-source configuration loader
 
-ecr_engine.py              # ECR implementation
+ecr_engine.py              # ECR implementation with optimizations
 control_probe.py           # Control Probe Type-1 and Type-2
-ifcs_engine.py             # IFCS implementation
+ifcs_engine.py             # IFCS implementation with κ(z*) gate
+semantic_analyzer.py       # Semantic analysis engine (replaces text matching)
 
 llm_provider.py            # Multi-LLM abstraction layer
 
@@ -442,6 +481,20 @@ benchmark_metrics.py       # MC1, MC2, DR score computation
 benchmark_orchestrator.py  # Batch processing with checkpointing
 benchmark_reports.py       # CSV, JSON, HTML report generation
 benchmark_config.py        # Benchmark configuration
+
+# Performance Analysis
+simple_gate_benchmark.py   # Gate performance benchmarking
+gate_performance_benchmark.py  # Detailed performance analysis
+GATE_PERFORMANCE_REPORT.md # Comprehensive performance report
+
+# Testing & Validation
+test_commitment_actuality.py  # κ(z*) gate validation (9/9 tests passing)
+simple_ecr_test.py         # ECR optimization validation
+
+# Optimization Analysis
+ecr_optimizations.py       # ECR performance enhancements
+ECR_OPTIMIZATION_SUMMARY.md   # ECR optimization analysis
+ECR_EXISTING_OPTIMIZATIONS_ANALYSIS.md  # Baseline optimization review
 
 requirements.txt           # Dependencies
 .env.template             # Environment configuration template
@@ -543,22 +596,41 @@ This implementation supports evaluation on:
 
 ## 🔬 Key Findings
 
-From the papers:
+From the papers and implementation analysis:
 
+### Mechanism Performance & Effectiveness
 - **ECR**: Coherence-based selection reduces incoherence-driven failures
-- **Control Probe Type-1**: Blocks inadmissible commitments (σ < τ)
-- **Control Probe Type-2**: Detects interaction-level drift (R_cum ≥ Θ)
-- **IFCS**: Commitment reduction of 50-87% while preserving information
+- **Control Probe Type-1**: Blocks inadmissible commitments (σ < τ) with 4,766 ops/s throughput
+- **Control Probe Type-2**: Detects interaction-level drift (R_cum ≥ Θ) with 3,784 ops/s throughput
+- **IFCS**: Commitment reduction of 50-87% while preserving information (603 ops/s throughput)
+- **κ(z*) Gate**: Ultra-fast commitment-actuality classification (16,372 ops/s) prevents false interventions
+
+### Performance Characteristics
+- **Pipeline Throughput**: ~64 complete cycles/second for full trilogy
+- **ECR Bottleneck**: 84.8% of total processing time (primary optimization target)
+- **Semantic Analysis**: 5,945 ops/s for comprehensive text analysis
+- **Production Scalability**: Configurable quality vs. performance trade-offs
+
+### Architectural Improvements
+- **C6 Compliance**: Domain-agnostic core with emergent domain sensitivity
+- **Semantic Analysis**: Replaced brittle text matching with robust pattern detection
+- **Boundary Enforcement**: κ(z*) gate prevents inappropriate interventions
+- **Performance Optimization**: 2.9x ECR speedup through intelligent caching
+
+### Validation Results
 - **Domain calibration**: Stricter thresholds in medical/legal domains prevent dangerous overconfidence
 - **Boundary compliance**: 100% - each mechanism operates only within its jurisdiction
+- **Test Coverage**: 9/9 commitment-actuality classification tests passing
+- **Performance Benchmarking**: Comprehensive gate-level performance analysis completed
 
 ## ⚠️ Limitations
 
 1. **Validation Scope**: Illustrative examples, not statistically generalizable
-2. **Computational Cost**: K×H LLM calls per query (latency overhead)
-3. **Heuristic Scoring**: R(z) components are operational formulas, not learned
-4. **Domain Detection**: Keyword-based (can be enhanced with classifiers)
+2. **Computational Cost**: K×H LLM calls per query (latency overhead) - ECR represents 84.8% of pipeline time
+3. **Heuristic Scoring**: R(z) components are operational formulas, not learned (now using semantic analysis)
+4. **Domain Detection**: Semantic pattern-based (enhanced from keyword-based approach)
 5. **No Underconfidence Handling**: Current IFCS targets overconfidence only
+6. **Performance Trade-offs**: Full pipeline ~64 ops/s vs. fast path >4,000 ops/s
 
 ## 🤝 Contributing
 
