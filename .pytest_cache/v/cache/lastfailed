@@ -1,0 +1,18 @@
+{
+  "test_dashboard_metrics.py::test_commitment_bearing_scenarios": true,
+  "test_dashboard_metrics.py::test_non_commitment_bearing_scenarios": true,
+  "test_dashboard_metrics.py::test_performance_alerts": true,
+  "test_dashboard_metrics.py::test_error_and_fallback_scenarios": true,
+  "test_dashboard_metrics.py::test_dashboard_snapshot": true,
+  "test_dashboard_metrics.py::test_time_series_metrics": true,
+  "test_dashboard_metrics.py::test_data_export": true,
+  "test_commitment_actuality.py::TestCommitmentActualityClassifier::test_property_4_commitment_bearing_classification": true,
+  "test_commitment_actuality.py::TestCommitmentActualityClassifier::test_specific_commitment_bearing_examples": true,
+  "test_commitment_actuality.py::TestCommitmentActualityClassifier::test_edge_cases": true,
+  "test_property_3_normal_processing_preservation.py::TestProperty3NormalProcessingPreservation::test_specific_commitment_bearing_examples_normal_processing": true,
+  "test_property_3_normal_processing_preservation.py::TestProperty3NormalProcessingPreservation::test_transformation_preservation_for_commitment_bearing": true,
+  "test_task_3_1_commitment_bearing_logic.py::TestTask31CommitmentBearingLogic::test_commitment_bearing_contexts_proceed_with_normal_sigma_rho_evaluation": true,
+  "test_task_3_1_commitment_bearing_logic.py::TestTask31CommitmentBearingLogic::test_ifcs_transformations_work_identically_for_commitment_bearing": true,
+  "test_task_3_1_commitment_bearing_logic.py::TestTask31CommitmentBearingLogic::test_commitment_risk_scoring_unchanged_for_commitment_bearing": true,
+  "test_task_3_1_commitment_bearing_logic.py::TestTask31CommitmentBearingLogic::test_specific_commitment_bearing_examples_follow_original_logic": true
+}
