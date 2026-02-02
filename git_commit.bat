@@ -1,4 +1,8 @@
 @echo off
+echo Adding all files...
 git add .
-git commit -m "Complete IFCS implementation with all 36 taxonomy test cases - 100%% success rate with real LLM integration"
+echo Committing changes...
+git commit -m "Complete IFCS implementation: Signal estimation, 3-gate pipeline, CP-2 topic gating, 36 taxonomy tests (100%% success)"
+echo Pushing to remote...
 git push origin master
+echo Done!
