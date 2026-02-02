@@ -138,15 +138,24 @@ class TrilogyConfig:
 
     def __post_init__(self):
         """Load API key and model from environment if not provided"""
-        if self.api_key is None:
-            # Try LLM_API_KEY first, then fallback to ANTHROPIC_API_KEY for backward compatibility
-            self.api_key = os.environ.get('LLM_API_KEY') or os.environ.get('ANTHROPIC_API_KEY')
+        # Check if we're using Ollama (local model) which doesn't need an API key
+        provider_type = os.getenv("LLM_PROVIDER", "anthropic").lower()
+        
+        if provider_type == "ollama":
+            # Ollama doesn't need an API key
+            self.api_key = None
+        else:
+            # Other providers need API keys
             if self.api_key is None:
-                raise ValueError(
-                    "API key must be provided or set in environment variable:\n"
-                    "  - LLM_API_KEY (for any provider), or\n"
-                    "  - ANTHROPIC_API_KEY (legacy, Anthropic only)"
-                )
+                # Try LLM_API_KEY first, then fallback to ANTHROPIC_API_KEY for backward compatibility
+                self.api_key = os.environ.get('LLM_API_KEY') or os.environ.get('ANTHROPIC_API_KEY')
+                if self.api_key is None:
+                    raise ValueError(
+                        f"API key must be provided for {provider_type} provider. Set in environment variable:\n"
+                        "  - LLM_API_KEY (for any provider), or\n"
+                        "  - ANTHROPIC_API_KEY (legacy, Anthropic only)\n"
+                        "  - For local models, use LLM_PROVIDER=ollama (no API key needed)"
+                    )
 
 
 # Marker dictionaries for IFCS scoring
