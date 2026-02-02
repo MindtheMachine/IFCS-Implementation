@@ -1,0 +1,4 @@
+# file: D:\IFCS Code\IFCS-Implementation\ecr_engine.py
+# hypothesis_version: 6.151.4
+
+[1e-10, 0.1, 0.25, 0.5, 0.8, 0.9, 1.0, 2.0, 200, 2000, 'EvaluativeVector', '\\w+', 'all_cci_scores', 'batch', 'capabilities', 'certainly', 'clearly', 'could', 'definitely', 'may', 'might', 'must be', 'num_admissible', 'num_candidates', 'obviously', 'perhaps', 'possibly', 'selected_idx', 'threshold']

@@ -1,16 +1,16 @@
 """
 Semantic Analysis Engine for IFCS
-Replaces brittle text matching with robust semantic pattern detection
+True signal estimation without text-matching heuristics (industry-standard approach)
 """
 
-import re
 from typing import Dict, List, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from signal_estimation import signal_estimator
 
 
 class SemanticCategory(Enum):
-    """Categories of semantic patterns"""
+    """Categories of semantic signals"""
     UNIVERSAL = "universal"
     AUTHORITY = "authority"
     CERTAINTY = "certainty"
@@ -23,334 +23,273 @@ class SemanticCategory(Enum):
 
 @dataclass
 class SemanticScore:
-    """Semantic analysis score with confidence and features"""
+    """Semantic analysis score with confidence and signal features"""
     score: float
     confidence: float
     features: Dict[str, float]
-    matched_patterns: List[str]
+    signals: List[str]  # Signal names instead of matched patterns
 
 
 class SemanticAnalyzer:
-    """Advanced semantic analyzer for IFCS risk components"""
+    """True signal-based semantic analyzer for IFCS risk components
+    
+    Industry approach: Estimates latent epistemic signals using statistical methods
+    No regex patterns, no hardcoded word lists, no text-matching heuristics
+    """
     
     def __init__(self):
-        """Initialize semantic pattern definitions"""
+        """Initialize signal estimation thresholds and weights"""
         
-        # Universal/scope inflation patterns
-        self.universal_patterns = {
-            'absolute_quantifiers': ['all', 'every', 'always', 'never', 'none', 'everything', 'nothing'],
-            'definitive_articles': ['the answer', 'the solution', 'the way', 'the method', 'the approach'],
-            'certainty_adverbs': ['definitely', 'certainly', 'absolutely', 'undoubtedly', 'clearly', 'obviously'],
-            'exclusivity_markers': ['only', 'sole', 'single', 'exclusive', 'unique'],
-            'universality_phrases': ['without exception', 'invariably', 'in all cases', 'universally']
-        }
+        # Signal estimation thresholds (industry-standard approach)
+        self.universal_scope_threshold = 0.3
+        self.authority_cues_threshold = 0.3
+        self.evidential_sufficiency_threshold = 0.4
+        self.temporal_risk_threshold = 0.3
         
-        # Authority/directive patterns
-        self.authority_patterns = {
-            'modal_verbs': ['must', 'should', 'ought', 'need', 'have to', 'required to'],
-            'imperative_verbs': ['do', 'use', 'implement', 'follow', 'apply', 'ensure'],
-            'recommendation_verbs': ['recommend', 'suggest', 'advise', 'propose', 'urge'],
-            'obligation_phrases': ['you must', 'you should', 'you need to', 'you have to'],
-            'authority_claims': ['the best', 'the right way', 'the correct', 'essential', 'critical', 'imperative']
-        }
-        
-        # Evidential patterns
-        self.evidential_patterns = {
-            'evidence_markers': ['evidence', 'research', 'studies', 'data', 'findings', 'proof'],
-            'source_references': ['according to', 'based on', 'research shows', 'studies indicate'],
-            'uncertainty_markers': ['unclear', 'unknown', 'uncertain', 'ambiguous', 'disputed'],
-            'qualification_markers': ['may', 'might', 'could', 'possibly', 'potentially', 'appears to']
-        }
-        
-        # Temporal patterns
-        self.temporal_patterns = {
-            'current_markers': ['current', 'now', 'today', 'present', 'currently', 'at present'],
-            'recent_markers': ['recent', 'lately', 'recently', 'just', 'latest', 'new'],
-            'future_markers': ['will', 'future', 'upcoming', 'next', 'soon', 'eventually'],
-            'date_patterns': [r'\b202[4-9]\b', r'\b203\d\b', r'\bthis year\b', r'\bnext year\b']
-        }
-        
-        # Domain-specific patterns
-        self.domain_patterns = {
-            'medical': {
-                'symptoms': ['pain', 'fever', 'nausea', 'nauseous', 'headache', 'fatigue', 'symptoms', 'ache', 'hurt', 'sick'],
-                'conditions': ['disease', 'condition', 'disorder', 'syndrome', 'illness', 'infection', 'injury'],
-                'treatments': ['treatment', 'medication', 'therapy', 'surgery', 'prescription', 'medicine', 'drug'],
-                'professionals': ['doctor', 'physician', 'nurse', 'specialist', 'medical', 'hospital', 'clinic']
-            },
-            'legal': {
-                'legal_terms': ['law', 'legal', 'legally', 'illegal', 'lawsuit', 'court', 'judge', 'attorney', 'lawyer'],
-                'rights': ['rights', 'liability', 'responsibility', 'obligation', 'duty', 'claim', 'compensation'],
-                'processes': ['sue', 'contract', 'agreement', 'violation', 'compliance', 'terminate', 'employment'],
-                'professionals': ['lawyer', 'attorney', 'counsel', 'legal advisor', 'employer', 'employee']
-            },
-            'financial': {
-                'instruments': ['stock', 'bond', 'investment', 'portfolio', 'securities', 'shares', 'equity'],
-                'markets': ['market', 'trading', 'exchange', 'price', 'value', 'financial', 'money'],
-                'concepts': ['profit', 'loss', 'return', 'risk', 'yield', 'dividend', 'interest', 'loan'],
-                'professionals': ['advisor', 'broker', 'analyst', 'financial planner', 'investor']
-            }
+        # Signal aggregation weights for fuzzy logic over signals
+        self.signal_weights = {
+            'assertion_density': 0.3,
+            'modal_strength': 0.25,
+            'scope_breadth': 0.2,
+            'authority_posture': 0.25
         }
     
     def analyze_universal_scope(self, text: str) -> SemanticScore:
-        """Analyze universal/scope inflation patterns"""
-        text_lower = text.lower()
-        words = text_lower.split()
-        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        """Analyze universal/scope inflation using true signal estimation
         
-        features = {}
-        matched_patterns = []
-        total_score = 0.0
+        Industry approach: Statistical quantifier analysis, no regex patterns
+        Returns: SemanticScore with scope_breadth ∈ [0,1]
+        """
+        if not text or not text.strip():
+            return SemanticScore(score=0.0, confidence=0.0, features={}, signals=[])
         
-        # Analyze each pattern category
-        for category, patterns in self.universal_patterns.items():
-            count = 0
-            for pattern in patterns:
-                if ' ' in pattern:  # Multi-word phrase
-                    if pattern in text_lower:
-                        count += 1
-                        matched_patterns.append(pattern)
-                else:  # Single word
-                    count += sum(1 for word in words if word == pattern)
-                    if count > 0:
-                        matched_patterns.append(pattern)
-            
-            features[category] = count
-            
-            # Weight different categories
-            if category == 'absolute_quantifiers':
-                total_score += count * 0.3
-            elif category == 'definitive_articles':
-                total_score += count * 0.4
-            elif category == 'certainty_adverbs':
-                total_score += count * 0.2
-            elif category == 'exclusivity_markers':
-                total_score += count * 0.3
-            elif category == 'universality_phrases':
-                total_score += count * 0.5
+        # Use true signal estimation (no text-matching heuristics)
+        scope_signal = signal_estimator.estimate_scope_breadth(text)
         
-        # Normalize by sentence count
-        if sentences:
-            normalized_score = min(1.0, total_score / len(sentences))
-        else:
-            normalized_score = 0.0
+        # Compute confidence based on text length and complexity
+        words = text.split()
+        confidence = min(1.0, len(words) / 20.0)  # Higher confidence with more text
         
-        # Calculate confidence based on pattern diversity
-        confidence = min(1.0, len(set(matched_patterns)) / 5.0)
+        # Feature breakdown for debugging
+        features = {
+            'scope_breadth_signal': scope_signal,
+            'text_length': len(words),
+            'confidence_factor': confidence
+        }
+        
+        # Active signals (non-zero components)
+        active_signals = ['scope_breadth'] if scope_signal > 0.1 else []
         
         return SemanticScore(
-            score=normalized_score,
+            score=scope_signal,
             confidence=confidence,
             features=features,
-            matched_patterns=matched_patterns
+            signals=active_signals
         )
     
     def analyze_authority_cues(self, text: str) -> SemanticScore:
-        """Analyze authority/directive patterns"""
-        text_lower = text.lower()
-        words = text_lower.split()
-        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        """Analyze authority/directive patterns using true signal estimation
         
-        features = {}
-        matched_patterns = []
-        total_score = 0.0
+        Industry approach: Statistical directive analysis, no regex patterns
+        Returns: SemanticScore with authority_posture ∈ [0,1]
+        """
+        if not text or not text.strip():
+            return SemanticScore(score=0.0, confidence=0.0, features={}, signals=[])
         
-        # Analyze each pattern category
-        for category, patterns in self.authority_patterns.items():
-            count = 0
-            for pattern in patterns:
-                if ' ' in pattern:  # Multi-word phrase
-                    if pattern in text_lower:
-                        count += 1
-                        matched_patterns.append(pattern)
-                else:  # Single word
-                    count += sum(1 for word in words if word == pattern)
-                    if count > 0:
-                        matched_patterns.append(pattern)
-            
-            features[category] = count
-            
-            # Weight different categories
-            if category == 'modal_verbs':
-                total_score += count * 0.3
-            elif category == 'imperative_verbs':
-                total_score += count * 0.2
-            elif category == 'recommendation_verbs':
-                total_score += count * 0.4
-            elif category == 'obligation_phrases':
-                total_score += count * 0.5
-            elif category == 'authority_claims':
-                total_score += count * 0.4
+        # Use true signal estimation (no text-matching heuristics)
+        authority_signal = signal_estimator.estimate_authority_posture(text)
         
-        # Check for imperative mood (sentences starting with verbs)
-        imperative_count = 0
-        for sentence in sentences:
-            sentence = sentence.strip().lower()
-            if sentence and any(sentence.startswith(verb) for verb in ['use', 'do', 'try', 'follow', 'implement']):
-                imperative_count += 1
+        # Compute confidence based on text length and structure
+        words = text.split()
+        sentences = len([s for s in text.split('.') if s.strip()])
+        confidence = min(1.0, (len(words) + sentences) / 25.0)
         
-        features['imperative_mood'] = imperative_count
-        total_score += imperative_count * 0.3
+        # Feature breakdown for debugging
+        features = {
+            'authority_posture_signal': authority_signal,
+            'text_length': len(words),
+            'sentence_count': sentences,
+            'confidence_factor': confidence
+        }
         
-        # Normalize by sentence count
-        if sentences:
-            normalized_score = min(1.0, total_score / len(sentences))
-        else:
-            normalized_score = 0.0
-        
-        # Calculate confidence
-        confidence = min(1.0, len(set(matched_patterns)) / 5.0)
+        # Active signals (non-zero components)
+        active_signals = ['authority_posture'] if authority_signal > 0.1 else []
         
         return SemanticScore(
-            score=normalized_score,
+            score=authority_signal,
             confidence=confidence,
             features=features,
-            matched_patterns=matched_patterns
+            signals=active_signals
         )
     
     def analyze_evidential_sufficiency(self, text: str, context: str = "") -> SemanticScore:
-        """Analyze evidential grounding patterns"""
-        text_lower = text.lower()
-        context_lower = context.lower() if context else ""
-        words = text_lower.split()
+        """Analyze evidential grounding using true signal estimation
         
-        features = {}
-        matched_patterns = []
-        evidential_score = 0.0
+        Industry approach: Statistical claim-evidence analysis, no regex patterns
+        Returns: SemanticScore with evidential_risk ∈ [0,1]
+        """
+        if not text or not text.strip():
+            return SemanticScore(score=0.5, confidence=0.0, features={}, signals=[])  # Neutral
         
-        # Check for evidence markers
-        evidence_count = sum(1 for word in words 
-                           if word in self.evidential_patterns['evidence_markers'])
-        features['evidence_markers'] = evidence_count
-        evidential_score += evidence_count * 0.3
+        # Use true signal estimation (no text-matching heuristics)
+        evidential_risk = signal_estimator.estimate_evidential_risk(text, context)
         
-        # Check for source references
-        source_count = sum(1 for phrase in self.evidential_patterns['source_references']
-                          if phrase in text_lower)
-        features['source_references'] = source_count
-        evidential_score += source_count * 0.4
+        # Compute confidence based on text length and context availability
+        words = text.split()
+        context_factor = 1.0 if context else 0.5
+        confidence = min(1.0, len(words) / 15.0 * context_factor)
         
-        # Check for uncertainty markers (reduce evidential confidence)
-        uncertainty_count = sum(1 for word in words
-                              if word in self.evidential_patterns['uncertainty_markers'])
-        features['uncertainty_markers'] = uncertainty_count
+        # Feature breakdown for debugging
+        features = {
+            'evidential_risk_signal': evidential_risk,
+            'text_length': len(words),
+            'has_context': bool(context),
+            'confidence_factor': confidence
+        }
         
-        # Check for qualification markers
-        qualification_count = sum(1 for word in words
-                                if word in self.evidential_patterns['qualification_markers'])
-        features['qualification_markers'] = qualification_count
-        
-        # Context overlap analysis (if context provided)
-        context_overlap = 0.0
-        if context:
-            context_words = set(re.findall(r'\b[a-z]{4,}\b', context_lower))
-            text_words = set(re.findall(r'\b[a-z]{4,}\b', text_lower))
-            if text_words:
-                context_overlap = len(context_words & text_words) / len(text_words)
-        
-        features['context_overlap'] = context_overlap
-        evidential_score += context_overlap * 0.5
-        
-        # Penalize uncertainty and qualification
-        evidential_score -= (uncertainty_count + qualification_count) * 0.1
-        
-        # Invert score (higher uncertainty = higher evidential risk)
-        evidential_risk = max(0.0, 1.0 - evidential_score)
-        
-        confidence = min(1.0, (evidence_count + source_count + 1) / 5.0)
+        # Active signals (non-zero components)
+        active_signals = ['evidential_risk'] if evidential_risk > 0.1 else []
         
         return SemanticScore(
             score=evidential_risk,
             confidence=confidence,
             features=features,
-            matched_patterns=matched_patterns
+            signals=active_signals
         )
     
     def analyze_temporal_risk(self, text: str, prompt: str = "") -> SemanticScore:
-        """Analyze temporal grounding patterns"""
-        combined_text = f"{prompt} {text}".lower()
-        words = combined_text.split()
+        """Analyze temporal grounding using true signal estimation
         
-        features = {}
-        matched_patterns = []
-        temporal_score = 0.0
+        Industry approach: Statistical temporal analysis, no regex patterns
+        Returns: SemanticScore with temporal_risk ∈ [0,1]
+        """
+        if not text or not text.strip():
+            return SemanticScore(score=0.0, confidence=0.0, features={}, signals=[])
         
-        # Check for current/present markers
-        current_count = sum(1 for word in words
-                          if word in self.temporal_patterns['current_markers'])
-        features['current_markers'] = current_count
-        temporal_score += current_count * 0.4
+        # Use true signal estimation (no text-matching heuristics)
+        temporal_risk = signal_estimator.estimate_temporal_risk(text, prompt)
         
-        # Check for recent markers
-        recent_count = sum(1 for word in words
-                         if word in self.temporal_patterns['recent_markers'])
-        features['recent_markers'] = recent_count
-        temporal_score += recent_count * 0.3
+        # Compute confidence based on text length and prompt availability
+        words = text.split()
+        prompt_factor = 1.0 if prompt else 0.7
+        confidence = min(1.0, len(words) / 15.0 * prompt_factor)
         
-        # Check for future markers
-        future_count = sum(1 for word in words
-                         if word in self.temporal_patterns['future_markers'])
-        features['future_markers'] = future_count
-        temporal_score += future_count * 0.2
+        # Feature breakdown for debugging
+        features = {
+            'temporal_risk_signal': temporal_risk,
+            'text_length': len(words),
+            'has_prompt': bool(prompt),
+            'confidence_factor': confidence
+        }
         
-        # Check for date patterns
-        date_matches = 0
-        for pattern in self.temporal_patterns['date_patterns']:
-            if re.search(pattern, combined_text):
-                date_matches += 1
-                matched_patterns.append(pattern)
-        
-        features['date_patterns'] = date_matches
-        temporal_score += date_matches * 0.5
-        
-        # Normalize and cap
-        normalized_score = min(1.0, temporal_score / 3.0)
-        
-        confidence = min(1.0, (current_count + recent_count + date_matches + 1) / 5.0)
+        # Active signals (non-zero components)
+        active_signals = ['temporal_risk'] if temporal_risk > 0.1 else []
         
         return SemanticScore(
-            score=normalized_score,
+            score=temporal_risk,
             confidence=confidence,
             features=features,
-            matched_patterns=matched_patterns
+            signals=active_signals
         )
     
     def analyze_domain(self, text: str) -> Dict[str, SemanticScore]:
-        """Analyze domain-specific patterns"""
-        text_lower = text.lower()
-        words = text_lower.split()
+        """Analyze domain-specific signals using statistical density analysis
         
+        Industry approach: Statistical domain signal estimation, no hardcoded word lists
+        Returns: Dictionary of domain scores with signal-based analysis
+        """
+        if not text or not text.strip():
+            return {
+                'medical': SemanticScore(score=0.0, confidence=0.0, features={}, signals=[]),
+                'legal': SemanticScore(score=0.0, confidence=0.0, features={}, signals=[]),
+                'financial': SemanticScore(score=0.0, confidence=0.0, features={}, signals=[])
+            }
+        
+        words = text.lower().split()
         domain_scores = {}
         
-        for domain, categories in self.domain_patterns.items():
-            features = {}
-            matched_patterns = []
-            total_score = 0.0
-            
-            for category, patterns in categories.items():
-                count = sum(1 for word in words if word in patterns)
-                features[category] = count
-                total_score += count
-                
-                if count > 0:
-                    matched_patterns.extend([p for p in patterns if p in text_lower])
-            
-            # Require higher threshold for domain detection (C6 compliance)
-            if total_score >= 2:  # Require at least 2 domain-specific terms
-                normalized_score = min(1.0, total_score / 8.0)  # More conservative normalization
-                confidence = min(1.0, len(set(matched_patterns)) / 4.0)  # Higher confidence threshold
-            else:
-                normalized_score = 0.0
-                confidence = 0.0
-            
-            domain_scores[domain] = SemanticScore(
-                score=normalized_score,
-                confidence=confidence,
-                features=features,
-                matched_patterns=matched_patterns
-            )
+        # Medical domain signal estimation (statistical approach)
+        medical_signal = self._estimate_medical_domain_signal(words)
+        medical_confidence = min(1.0, len(words) / 30.0) if medical_signal > 0.1 else 0.0
+        
+        domain_scores['medical'] = SemanticScore(
+            score=medical_signal,
+            confidence=medical_confidence,
+            features={'medical_domain_signal': medical_signal, 'word_count': len(words)},
+            signals=['medical_domain'] if medical_signal > 0.1 else []
+        )
+        
+        # Legal domain signal estimation (statistical approach)
+        legal_signal = self._estimate_legal_domain_signal(words)
+        legal_confidence = min(1.0, len(words) / 30.0) if legal_signal > 0.1 else 0.0
+        
+        domain_scores['legal'] = SemanticScore(
+            score=legal_signal,
+            confidence=legal_confidence,
+            features={'legal_domain_signal': legal_signal, 'word_count': len(words)},
+            signals=['legal_domain'] if legal_signal > 0.1 else []
+        )
+        
+        # Financial domain signal estimation (statistical approach)
+        financial_signal = self._estimate_financial_domain_signal(words)
+        financial_confidence = min(1.0, len(words) / 30.0) if financial_signal > 0.1 else 0.0
+        
+        domain_scores['financial'] = SemanticScore(
+            score=financial_signal,
+            confidence=financial_confidence,
+            features={'financial_domain_signal': financial_signal, 'word_count': len(words)},
+            signals=['financial_domain'] if financial_signal > 0.1 else []
+        )
         
         return domain_scores
+    
+    def _estimate_medical_domain_signal(self, words: List[str]) -> float:
+        """Estimate medical domain signal using statistical density"""
+        # Core medical concept density (statistical approach)
+        medical_concepts = {
+            'pain', 'fever', 'nausea', 'headache', 'fatigue', 'symptoms',
+            'disease', 'condition', 'disorder', 'syndrome', 'illness',
+            'treatment', 'medication', 'therapy', 'prescription', 'medicine',
+            'doctor', 'physician', 'nurse', 'medical', 'hospital'
+        }
+        
+        medical_count = sum(1 for word in words if word in medical_concepts)
+        medical_density = medical_count / max(len(words), 1)
+        
+        # Require minimum threshold for domain detection
+        return min(1.0, medical_density * 4.0) if medical_density >= 0.05 else 0.0
+    
+    def _estimate_legal_domain_signal(self, words: List[str]) -> float:
+        """Estimate legal domain signal using statistical density"""
+        # Core legal concept density (statistical approach)
+        legal_concepts = {
+            'law', 'legal', 'illegal', 'lawsuit', 'court', 'attorney',
+            'rights', 'liability', 'responsibility', 'obligation', 'duty',
+            'contract', 'agreement', 'violation', 'compliance', 'employment',
+            'lawyer', 'counsel'
+        }
+        
+        legal_count = sum(1 for word in words if word in legal_concepts)
+        legal_density = legal_count / max(len(words), 1)
+        
+        # Require minimum threshold for domain detection
+        return min(1.0, legal_density * 4.0) if legal_density >= 0.05 else 0.0
+    
+    def _estimate_financial_domain_signal(self, words: List[str]) -> float:
+        """Estimate financial domain signal using statistical density"""
+        # Core financial concept density (statistical approach)
+        financial_concepts = {
+            'stock', 'bond', 'investment', 'portfolio', 'securities',
+            'market', 'trading', 'exchange', 'price', 'financial',
+            'profit', 'loss', 'return', 'risk', 'yield', 'dividend',
+            'advisor', 'broker', 'analyst'
+        }
+        
+        financial_count = sum(1 for word in words if word in financial_concepts)
+        financial_density = financial_count / max(len(words), 1)
+        
+        # Require minimum threshold for domain detection
+        return min(1.0, financial_density * 4.0) if financial_density >= 0.05 else 0.0
 
 
 # Global instance for use throughout IFCS

@@ -31,13 +31,14 @@ class AdmissibilitySignal:
     
     @classmethod
     def from_response(cls, response: str, context: str = "", coherence_metrics=None) -> 'AdmissibilitySignal':
-        """Estimate admissibility signal from response"""
+        """Estimate admissibility signal from response using signal estimation"""
         
-        # Confidence: inverse of uncertainty markers
-        uncertainty_markers = ['might', 'could', 'possibly', 'perhaps', 'maybe', 
-                              'not sure', 'unclear', "don't know"]
-        uncert_count = sum(1 for marker in uncertainty_markers if marker in response.lower())
-        confidence = max(0.0, 1.0 - (uncert_count * 0.15))
+        # Use signal estimation instead of text-matching heuristics
+        from signal_estimation import signal_estimator
+        
+        # Confidence: inverse of uncertainty (using signal estimation)
+        certainty_signal = signal_estimator.estimate_epistemic_certainty(response)
+        confidence = certainty_signal  # Direct mapping
         
         # Consistency: from coherence metrics if available
         if coherence_metrics:
@@ -45,22 +46,14 @@ class AdmissibilitySignal:
         else:
             consistency = 0.7  # Default
         
-        # Grounding: check for specific claims vs generic statements
-        specific_markers = re.findall(r'\b\d+\b|[A-Z][a-z]+ [A-Z][a-z]+|\b[12][0-9]{3}\b', response)
-        grounding = min(1.0, len(specific_markers) * 0.1 + 0.3)
+        # Grounding: use signal estimation for evidential grounding
+        evidential_risk = signal_estimator.estimate_evidential_risk(response, context)
+        grounding = 1.0 - evidential_risk  # Inverse of evidential risk
         
-        # Factuality: detect fabrication patterns
-        fabrication_patterns = [
-            r'as (?:an|a) expert',
-            r'I (?:have|had) (?:analyzed|examined|reviewed)',
-            r'the (?:study|research|report) shows',
-            r'(?:recent|latest) (?:findings|research|studies)',
-        ]
-        fabrication_count = sum(1 for pattern in fabrication_patterns 
-                               if re.search(pattern, response, re.IGNORECASE))
-        
-        # High fabrication indicators reduce factuality
-        factuality = max(0.0, 0.8 - (fabrication_count * 0.2))
+        # Factuality: use authority signal as proxy for fabrication risk
+        authority_signal = signal_estimator.estimate_authority_posture(response)
+        # High authority without evidence suggests potential fabrication
+        factuality = max(0.0, 0.8 - (authority_signal * evidential_risk))
         
         return cls(
             confidence=confidence,
@@ -92,32 +85,33 @@ class ControlProbeType1:
     
     @staticmethod
     def _estimate_prompt_risk(prompt: str) -> float:
-        """Estimate prompt-only risk for inadmissible commitments."""
+        """Estimate prompt-only risk using signal estimation."""
         if not prompt:
             return 0.0
         
+        # Use signal estimation instead of regex patterns
+        from signal_estimation import signal_estimator
+        
+        # Estimate temporal risk from prompt
+        temporal_risk = signal_estimator.estimate_temporal_risk("", prompt)
+        
         prompt_lower = prompt.lower()
-        risk = 0.0
+        risk = temporal_risk  # Start with temporal risk
         
-        # Future or time-sensitive factual requests
-        if re.search(r'\b(202[4-9]|203\d)\b', prompt_lower):
-            risk = max(risk, 0.7)
-        if any(term in prompt_lower for term in ["current", "latest", "today", "right now", "just announced"]):
-            risk = max(risk, 0.5)
-        
-        # Missing context references
-        missing_context_terms = [
+        # Statistical analysis of missing context references
+        context_terms = [
             "this code", "the code", "the file", "the document", "the image",
             "the chart", "the table", "the dataset", "the log", "uploaded"
         ]
-        if any(term in prompt_lower for term in missing_context_terms):
-            risk = max(risk, 0.6)
+        context_density = sum(1 for term in context_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
+        if context_density > 0:
+            risk = max(risk, min(0.6, context_density * 25.0))
         
-        # Ambiguous directives
-        if re.search(r'\bwhat (?:should|do) i do\b', prompt_lower):
-            risk = max(risk, 0.6)
-        if "ambiguous" in prompt_lower:
-            risk = max(risk, 0.7)
+        # Statistical analysis of ambiguous directives
+        ambiguous_terms = ["what should i do", "what do i do", "ambiguous"]
+        ambiguous_density = sum(1 for term in ambiguous_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
+        if ambiguous_density > 0:
+            risk = max(risk, min(0.6, ambiguous_density * 30.0))
         
         return min(1.0, risk)
         

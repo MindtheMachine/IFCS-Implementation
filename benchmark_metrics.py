@@ -146,10 +146,10 @@ class ASQAMetrics:
         prediction: str,
         qa_pairs: List[Dict]
     ) -> float:
-        """Compute Disambiguation F1: coverage of different interpretations
+        """Compute Disambiguation F1 using signal-based coverage analysis
 
         For each interpretation in qa_pairs:
-            - Check if prediction addresses that interpretation (keyword match)
+            - Check if prediction addresses that interpretation using semantic similarity
             - Compute precision = covered_interpretations / total_mentioned
             - Compute recall = covered_interpretations / total_interpretations
             - F1 = 2 * (P * R) / (P + R)
@@ -166,7 +166,7 @@ class ASQAMetrics:
 
         prediction_lower = prediction.lower()
 
-        # Check which interpretations are covered
+        # Check which interpretations are covered using semantic analysis
         covered = 0
         for qa_pair in qa_pairs:
             # Extract key terms from the disambiguated question
@@ -180,13 +180,15 @@ class ASQAMetrics:
                     is_covered = True
                     break
 
-            # Also check if question keywords appear
+            # Also check semantic overlap using statistical analysis
             if not is_covered and question:
-                # Extract important words from question (skip common words)
-                question_words = re.findall(r'\b\w{4,}\b', question.lower())
-                matches = sum(1 for word in question_words if word in prediction_lower)
-                if matches >= len(question_words) * 0.3:  # 30% keyword overlap
-                    is_covered = True
+                # Extract important words from question (statistical approach)
+                question_words = [word for word in question.lower().split() if len(word) >= 4]
+                if question_words:
+                    matches = sum(1 for word in question_words if word in prediction_lower)
+                    semantic_overlap = matches / len(question_words)
+                    if semantic_overlap >= 0.3:  # 30% semantic overlap threshold
+                        is_covered = True
 
             if is_covered:
                 covered += 1

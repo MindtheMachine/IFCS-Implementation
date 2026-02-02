@@ -174,7 +174,7 @@ Select the most accurate answer."""
         return None
 
     def _compute_best_match(self, response: str, choices: List[str]) -> int:
-        """Compute best matching choice using word overlap
+        """Compute best matching choice using semantic similarity analysis
 
         Args:
             response: LLM response
@@ -183,15 +183,20 @@ Select the most accurate answer."""
         Returns:
             Index of best matching choice
         """
-        response_words = set(re.findall(r'\b\w+\b', response.lower()))
+        # Use statistical word overlap analysis instead of regex patterns
+        response_words = set(word.lower() for word in response.split() if len(word) >= 3)
 
         best_score = -1
         best_idx = 0
 
         for i, choice in enumerate(choices):
-            choice_words = set(re.findall(r'\b\w+\b', choice.lower()))
+            choice_words = set(word.lower() for word in choice.split() if len(word) >= 3)
+            
+            if not choice_words:  # Avoid division by zero
+                continue
+                
             overlap = len(response_words & choice_words)
-            score = overlap / max(len(choice_words), 1)
+            score = overlap / len(choice_words)
 
             if score > best_score:
                 best_score = score

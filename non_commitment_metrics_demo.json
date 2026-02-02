@@ -1,0 +1,69 @@
+{
+  "export_timestamp": "2026-02-02T17:35:06.332032",
+  "total_metrics": 3,
+  "non_commitment_metrics": [
+    {
+      "timestamp": "2026-02-02T17:35:06.294257",
+      "prompt_length": 56,
+      "response_length": 119,
+      "classification_rationale": "Classified as non-commitment-bearing due to: listing patterns (1)",
+      "descriptive_signals": {
+        "listing_strength": 1,
+        "informational_strength": 0,
+        "hedging_strength": 0,
+        "informational_phrases": 0
+      },
+      "commitment_signals": {
+        "directive_strength": 0,
+        "recommendation_strength": 0,
+        "certainty_strength": 0,
+        "superlative_strength": 0
+      },
+      "context_bias": -1,
+      "hedging_penalty": 0,
+      "final_score_difference": -0.95
+    },
+    {
+      "timestamp": "2026-02-02T17:35:06.299312",
+      "prompt_length": 33,
+      "response_length": 117,
+      "classification_rationale": "Classified as non-commitment-bearing due to: informational phrases (1)",
+      "descriptive_signals": {
+        "listing_strength": 0,
+        "informational_strength": 0,
+        "hedging_strength": 0,
+        "informational_phrases": 1
+      },
+      "commitment_signals": {
+        "directive_strength": 0,
+        "recommendation_strength": 0,
+        "certainty_strength": 0,
+        "superlative_strength": 0
+      },
+      "context_bias": 1,
+      "hedging_penalty": 2,
+      "final_score_difference": -1.75
+    },
+    {
+      "timestamp": "2026-02-02T17:35:06.312724",
+      "prompt_length": 41,
+      "response_length": 127,
+      "classification_rationale": "Classified as non-commitment-bearing due to: listing patterns (1), informational phrases (1)",
+      "descriptive_signals": {
+        "listing_strength": 1,
+        "informational_strength": 0,
+        "hedging_strength": 0,
+        "informational_phrases": 1
+      },
+      "commitment_signals": {
+        "directive_strength": 0,
+        "recommendation_strength": 0,
+        "certainty_strength": 0,
+        "superlative_strength": 0
+      },
+      "context_bias": -1,
+      "hedging_penalty": 0,
+      "final_score_difference": -1.5999999999999999
+    }
+  ]
+}

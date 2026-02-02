@@ -1,0 +1,4 @@
+# file: D:\IFCS Code\IFCS-Implementation\signal_estimation.py
+# hypothesis_version: 6.151.4
+
+[0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 1.0, 2.0, 3.0, 4.0, 8.0, '!', '.', '?', 'all', 'always', 'appears', 'are', 'based', 'because', 'certain', 'certainly', 'clearly', 'could', 'could try', 'current', 'currently', 'data', 'definitely', 'due', 'eventually', 'every', 'everyone', 'everything', 'evidence', 'future', 'have', 'i recommend', 'i suggest', 'is', 'it depends', 'likely', 'may', 'may want to', 'maybe', 'might', 'might consider', 'must', 'need', 'never', 'next', 'next month', 'next year', 'now', 'obviously', 'particular', 'perhaps', 'possibly', 'present', 'probably', 'research', 'seems', 'shall', 'should', 'since', 'some', 'sometimes', 'soon', 'specific', 'study', 'that', 'the best', 'this', 'this month', 'this year', 'today', 'undoubtedly', 'upcoming', 'will', 'would', 'you must', 'you need to', 'you should']
