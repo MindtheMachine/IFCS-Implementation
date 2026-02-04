@@ -98,96 +98,6 @@ class CommitmentActualityClassifier:
         
         return min(1.0, max(0.0, aggregated))
     
-    def _analyze_semantic_patterns(self, text: str) -> dict:
-        """Analyze text for semantic commitment patterns"""
-        text_lower = text.lower()
-        words = text_lower.split()
-        
-        # Analyze commitment patterns
-        commitment_score = 0
-        commitment_features = {}
-        
-        # 1. Directive language analysis
-        directive_count = 0
-        for word in words:
-            if word in self.commitment_indicators['directive_verbs']:
-                # Check context - is it directed at the user?
-                word_idx = words.index(word)
-                context_window = words[max(0, word_idx-2):min(len(words), word_idx+3)]
-                if 'you' in context_window or word_idx < 3:  # Early in sentence suggests directive
-                    directive_count += 2
-                else:
-                    directive_count += 1
-        
-        commitment_features['directive_strength'] = directive_count
-        commitment_score += directive_count
-        
-        # 2. Recommendation language
-        recommendation_count = sum(1 for word in words if word in self.commitment_indicators['recommendation_verbs'])
-        commitment_features['recommendation_strength'] = recommendation_count
-        commitment_score += recommendation_count * 1.5
-        
-        # 3. Certainty and definitiveness
-        certainty_count = sum(1 for word in words if word in self.commitment_indicators['certainty_adverbs'])
-        commitment_features['certainty_strength'] = certainty_count
-        commitment_score += certainty_count * 1.2
-        
-        # 4. Superlative/exclusive language
-        superlative_count = sum(1 for word in words if word in self.commitment_indicators['superlative_patterns'])
-        exclusivity_count = sum(1 for word in words if word in self.commitment_indicators['exclusivity_patterns'])
-        
-        # Give extra weight to strong commitment phrases
-        strong_commitment_phrases = ['the best', 'best approach', 'best choice', 'right way', 'correct way', 'only way', 'proper approach']
-        strong_phrase_bonus = 0
-        text_lower = text.lower()
-        for phrase in strong_commitment_phrases:
-            if phrase in text_lower:
-                strong_phrase_bonus += 2  # Strong bonus for definitive phrases
-        
-        commitment_features['superlative_strength'] = superlative_count + exclusivity_count + strong_phrase_bonus
-        commitment_score += (superlative_count + exclusivity_count) * 1.3 + strong_phrase_bonus
-        
-        # Analyze descriptive patterns
-        descriptive_score = 0
-        descriptive_features = {}
-        
-        # 1. Listing/enumeration language
-        listing_count = sum(1 for word in words if word in self.descriptive_indicators['listing_verbs'])
-        
-        # Enhanced listing detection for numbered/bulleted lists
-        if re.search(r'\d+\.\s', text) or re.search(r'^\s*[-*•]\s', text, re.MULTILINE):
-            listing_count += 3  # Strong signal for enumeration
-        
-        # Check for "include:" pattern which is strongly descriptive
-        if 'include:' in text_lower or 'includes:' in text_lower:
-            listing_count += 2
-            
-        descriptive_features['listing_strength'] = listing_count
-        descriptive_score += listing_count * 1.5
-        
-        # 2. Example/reference markers
-        example_count = sum(1 for word in words if word in self.descriptive_indicators['example_markers'])
-        reference_count = sum(1 for word in words if word in self.descriptive_indicators['reference_markers'])
-        descriptive_features['informational_strength'] = example_count + reference_count
-        descriptive_score += (example_count + reference_count) * 1.2
-        
-        # 3. Frequency/hedging language
-        frequency_count = sum(1 for word in words if word in self.descriptive_indicators['frequency_adverbs'])
-        descriptive_features['hedging_strength'] = frequency_count
-        descriptive_score += frequency_count * 1.1
-        
-        # 4. Informational phrases (practices, approaches, etc.)
-        informational_count = sum(1 for word in words if word in self.descriptive_indicators['informational_phrases'])
-        descriptive_features['informational_phrases'] = informational_count
-        descriptive_score += informational_count * 1.3
-        
-        return {
-            'commitment_score': commitment_score,
-            'descriptive_score': descriptive_score,
-            'commitment_features': commitment_features,
-            'descriptive_features': descriptive_features
-        }
-    
     def _analyze_syntactic_patterns(self, text: str) -> dict:
         """Analyze syntactic patterns using signal estimation (no text-matching heuristics)"""
         # Use signal estimation instead of regex patterns
@@ -349,32 +259,6 @@ class CommitmentActualityClassifier:
             'max_computation_time_ms': max(times),
             'total_computation_time_ms': sum(times)
         }
-        """Analyze pragmatic context from prompt to inform classification"""
-        if not prompt:
-            return {'context_bias': 0}
-        
-        prompt_lower = prompt.lower()
-        context_bias = 0
-        
-        # Information-seeking questions (bias toward descriptive)
-        info_seeking_patterns = [
-            'what are', 'what is', 'tell me about', 'explain', 'describe',
-            'list', 'show me', 'give me examples', 'how does'
-        ]
-        if any(pattern in prompt_lower for pattern in info_seeking_patterns):
-            context_bias -= 1
-        
-        # Advice-seeking questions (bias toward commitment)
-        advice_seeking_patterns = [
-            'what should', 'how should', 'what do you recommend', 'what\'s the best',
-            'how do i', 'help me', 'what would you do'
-        ]
-        if any(pattern in prompt_lower for pattern in advice_seeking_patterns):
-            context_bias += 1
-        
-        return {'context_bias': context_bias}
-    
-    def _analyze_pragmatic_context(self, response: str, prompt: str) -> dict:
         """Analyze pragmatic context from prompt to inform classification"""
         if not prompt:
             return {'context_bias': 0}
@@ -570,166 +454,92 @@ class IFCSEngine:
         if not prompt or not response:
             return 0.0
         
-        # Use signal estimation instead of regex patterns
         from signal_estimation import signal_estimator
         
-        # Estimate jurisdictional dependency signals
         authority_signal = signal_estimator.estimate_authority_posture(response)
         certainty_signal = signal_estimator.estimate_epistemic_certainty(response)
-        
-        # High authority + high certainty in legal/permission context suggests jurisdictional dependency
+        prompt_signal = signal_estimator.estimate_jurisdictional_signal(prompt)
+
         combined_signal = (authority_signal + certainty_signal) / 2.0
-        
-        # Scale based on prompt context (permission-seeking increases risk)
-        prompt_lower = prompt.lower()
-        permission_context = any(term in prompt_lower for term in ['can i', 'may i', 'allowed', 'legal', 'illegal'])
-        
-        if permission_context and combined_signal > 0.6:
-            return min(0.8, combined_signal * 1.2)
-        
-        return combined_signal * 0.3  # Lower baseline risk
+        risk = prompt_signal * combined_signal
+        return min(0.8, risk * 1.4)
 
     def _detect_policy_dependency(self, prompt: str, response: str) -> float:
         """Detect reliance on external policies using signal estimation."""
         if not prompt or not response:
             return 0.0
         
-        # Use signal estimation instead of text-matching heuristics
         from signal_estimation import signal_estimator
         
-        # Estimate policy dependency signals
         authority_signal = signal_estimator.estimate_authority_posture(response)
         certainty_signal = signal_estimator.estimate_epistemic_certainty(response)
-        
-        # Check for policy context in prompt
-        prompt_lower = prompt.lower()
-        policy_context = any(term in prompt_lower for term in ['policy', 'rules', 'regulation', 'terms', 'guidelines'])
-        
-        # High authority + certainty in policy context suggests dependency
+        prompt_signal = signal_estimator.estimate_policy_signal(prompt)
+
         combined_signal = (authority_signal + certainty_signal) / 2.0
-        
-        if policy_context and combined_signal > 0.5:
-            return min(0.6, combined_signal * 1.1)
-        
-        return combined_signal * 0.2  # Lower baseline risk
+        risk = prompt_signal * combined_signal
+        return min(0.6, risk * 1.3)
 
     def _detect_permission_framing(self, prompt: str, response: str) -> float:
         """Detect binary permission framing using signal estimation."""
         if not prompt or not response:
             return 0.0
         
-        # Use signal estimation instead of regex patterns
         from signal_estimation import signal_estimator
         
-        # Estimate binary framing signals
         certainty_signal = signal_estimator.estimate_epistemic_certainty(response)
         authority_signal = signal_estimator.estimate_authority_posture(response)
-        
-        # Check for permission-seeking context
-        prompt_lower = prompt.lower()
-        permission_seeking = any(phrase in prompt_lower for phrase in ['can i', 'may i', 'am i allowed', 'is it okay to'])
-        
-        # High certainty + authority in permission context suggests binary framing
+        prompt_signal = signal_estimator.estimate_binary_signal(prompt)
+
         combined_signal = (certainty_signal + authority_signal) / 2.0
-        
-        if permission_seeking and combined_signal > 0.5:
-            return min(0.7, combined_signal * 1.3)
-        
-        return combined_signal * 0.1  # Very low baseline risk
+        risk = prompt_signal * combined_signal
+        return min(0.7, risk * 1.5)
 
     def _detect_missing_personal_data(self, prompt: str, response: str) -> float:
         """Detect personal-need questions answered with strong diagnosis using signal estimation."""
         if not prompt or not response:
             return 0.0
         
-        # Use signal estimation instead of text-matching heuristics
         from signal_estimation import signal_estimator
         
-        # Estimate diagnostic certainty signals
         certainty_signal = signal_estimator.estimate_epistemic_certainty(response)
         authority_signal = signal_estimator.estimate_authority_posture(response)
-        
-        # Check for personal context in prompt
-        prompt_lower = prompt.lower()
-        personal_context = any(phrase in prompt_lower for phrase in ['i have', 'i feel', "i'm experiencing", 'my '])
-        
-        # High certainty + authority in personal context suggests missing personal data
+        prompt_signal = signal_estimator.estimate_personal_signal(prompt)
+
         combined_signal = (certainty_signal + authority_signal) / 2.0
-        
-        if personal_context and combined_signal > 0.6:
-            return min(0.9, combined_signal * 1.4)
-        
-        return combined_signal * 0.2  # Lower baseline risk
+        risk = prompt_signal * combined_signal
+        return min(0.9, risk * 1.4)
 
     def _detect_consequence_asymmetry(self, prompt: str, response: str) -> float:
         """Detect high-consequence framing with definitive guidance using signal estimation."""
         if not prompt or not response:
             return 0.0
         
-        # Use signal estimation instead of text-matching heuristics
         from signal_estimation import signal_estimator
         
-        # Estimate consequence-related certainty signals
         certainty_signal = signal_estimator.estimate_epistemic_certainty(response)
         authority_signal = signal_estimator.estimate_authority_posture(response)
-        
-        # Check for consequence-related context in prompt
-        prompt_lower = prompt.lower()
-        consequence_context = any(term in prompt_lower for term in ['risk', 'danger', 'safety', 'safe', 'unsafe', 'harm'])
-        
-        # High certainty + authority in consequence context suggests asymmetry
+        prompt_signal = signal_estimator.estimate_consequence_signal(prompt)
+
         combined_signal = (certainty_signal + authority_signal) / 2.0
-        
-        if consequence_context and combined_signal > 0.5:
-            return min(0.8, combined_signal * 1.5)
-        
-        return combined_signal * 0.1  # Very low baseline risk
+        risk = prompt_signal * combined_signal
+        return min(0.8, risk * 1.5)
 
     def prompt_structural_signals(self, prompt: str) -> Dict[str, float]:
         """Estimate structural risk from prompt using signal estimation (domain-agnostic)."""
         if not prompt:
             return {}
         
-        # Use signal estimation instead of regex patterns
         from signal_estimation import signal_estimator
         
-        # Estimate temporal risk from prompt
         temporal_risk = signal_estimator.estimate_temporal_risk("", prompt)  # Empty response, analyze prompt
-        
-        prompt_lower = prompt.lower()
-        
-        # Use statistical analysis instead of hardcoded patterns
-        signals = {}
-        
-        # Jurisdictional risk (permission-seeking language)
-        permission_terms = ['can i', 'may i', 'am i allowed', 'is it legal', 'is it illegal', 'is it okay to']
-        permission_density = sum(1 for term in permission_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["jurisdictional"] = min(0.7, permission_density * 20.0)
-        
-        # Policy risk (policy-related language)
-        policy_terms = ['policy', 'rules', 'regulation', 'terms', 'guidelines']
-        policy_density = sum(1 for term in policy_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["policy"] = min(0.6, policy_density * 15.0)
-        
-        # Binary framing risk
-        binary_terms = ['can i', 'may i', 'am i allowed', 'is it okay to']
-        binary_density = sum(1 for term in binary_terms if prompt_lower.startswith(term)) / max(1, 1)
-        signals["binary"] = min(0.7, binary_density * 0.7)
-        
-        # Personal data risk
-        personal_terms = ['i have', 'i feel', "i'm experiencing", 'my ']
-        personal_density = sum(1 for term in personal_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["personal_data"] = min(0.7, personal_density * 25.0)
-        
-        # Temporal risk (use signal estimation)
-        signals["temporal"] = temporal_risk
-        
-        # Consequence risk
-        consequence_terms = ['risk', 'danger', 'safety', 'safe', 'unsafe', 'harm']
-        consequence_density = sum(1 for term in consequence_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["consequence"] = min(0.6, consequence_density * 20.0)
-        
-        return signals
+        return {
+            "jurisdictional": signal_estimator.estimate_jurisdictional_signal(prompt),
+            "policy": signal_estimator.estimate_policy_signal(prompt),
+            "binary": signal_estimator.estimate_binary_signal(prompt),
+            "personal_data": signal_estimator.estimate_personal_signal(prompt),
+            "temporal": temporal_risk,
+            "consequence": signal_estimator.estimate_consequence_signal(prompt),
+        }
 
     def _structural_signals(self, prompt: str, response: str) -> Dict[str, float]:
         """Structural insufficiency signals (domain-agnostic)."""
@@ -842,49 +652,20 @@ class IFCSEngine:
         if not prompt:
             return {'e_hat': 0.0, 's_hat': 0.0, 'a_hat': 0.0, 't_hat': 0.0}
         
-        # Use signal estimation instead of text-matching heuristics
         from signal_estimation import signal_estimator
         
-        prompt_lower = prompt.lower()
-        e_hat = 0.0
-        s_hat = 0.0
-        a_hat = 0.0
-        t_hat = 0.0
-        
-        # Estimate temporal risk using signal estimation
         t_hat = signal_estimator.estimate_temporal_risk("", prompt)
-        
-        # Missing or external context (statistical analysis)
-        context_terms = ["this code", "the code", "the file", "the document", "the image",
-                        "the chart", "the table", "the dataset", "the log", "uploaded"]
-        context_density = sum(1 for term in context_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if context_density > 0:
-            e_hat = max(e_hat, min(0.6, context_density * 30.0))
-        
-        # Ambiguous instructions (statistical analysis)
-        ambiguous_terms = ["ambiguous", "what should i do", "what do i do"]
-        ambiguous_density = sum(1 for term in ambiguous_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if ambiguous_density > 0:
-            e_hat = max(e_hat, min(0.6, ambiguous_density * 25.0))
-            s_hat = max(s_hat, min(0.4, ambiguous_density * 20.0))
-        
-        # Overly definitive framing (statistical analysis)
-        definitive_terms = ["definitive", "the best", "only way", "right way"]
-        definitive_density = sum(1 for term in definitive_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if definitive_density > 0:
-            s_hat = max(s_hat, min(0.5, definitive_density * 20.0))
-        
-        # Authority-seeking questions (statistical analysis)
-        authority_terms = ["should", "recommend", "proven", "correct", "right", "ought to"]
-        authority_density = sum(1 for term in authority_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if authority_density > 0:
-            a_hat = max(a_hat, min(0.5, authority_density * 15.0))
-        
-        certainty_terms = ["proven", "definitive", "certain", "absolutely"]
-        certainty_density = sum(1 for term in certainty_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if certainty_density > 0:
-            s_hat = max(s_hat, min(0.4, certainty_density * 20.0))
-        
+
+        context_signal = signal_estimator.estimate_context_dependency_signal(prompt)
+        ambiguity_signal = signal_estimator.estimate_ambiguity_signal(prompt)
+        definitive_signal = signal_estimator.estimate_definitive_request_signal(prompt)
+        authority_request = signal_estimator.estimate_authority_request_signal(prompt)
+        certainty_signal = signal_estimator.estimate_epistemic_certainty(prompt)
+
+        e_hat = min(0.6, context_signal * 0.8 + ambiguity_signal * 0.6)
+        s_hat = min(0.5, ambiguity_signal * 0.5 + definitive_signal * 0.8 + certainty_signal * 0.3)
+        a_hat = min(0.5, authority_request * 0.8 + certainty_signal * 0.3)
+
         return {'e_hat': e_hat, 's_hat': s_hat, 'a_hat': a_hat, 't_hat': t_hat}
     
     def compute_commitment_risk(

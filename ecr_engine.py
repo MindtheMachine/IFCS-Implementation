@@ -7,7 +7,6 @@ import numpy as np
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
-import re
 
 
 @dataclass
@@ -32,32 +31,20 @@ class EvaluativeVector:
     @classmethod
     def from_response(cls, response: str, step: int, context: str = "") -> 'EvaluativeVector':
         """Estimate evaluative vector from response text"""
-        # These are heuristic approximations
-        
-        # Confidence: based on presence of certainty markers
-        confidence_markers = ['definitely', 'certainly', 'clearly', 'obviously', 'must be']
-        uncertainty_markers = ['might', 'could', 'possibly', 'perhaps', 'may']
-        
-        conf_count = sum(1 for marker in confidence_markers if marker in response.lower())
-        uncert_count = sum(1 for marker in uncertainty_markers if marker in response.lower())
-        
-        confidence = min(1.0, 0.5 + (conf_count * 0.1) - (uncert_count * 0.1))
+        from signal_estimation import signal_estimator
+
+        confidence = signal_estimator.estimate_epistemic_certainty(response)
         uncertainty = 1.0 - confidence
-        
-        # Retrieval: semantic similarity to context (simplified)
+
         if context:
-            # Count overlapping significant words
-            response_words = set(re.findall(r'\w+', response.lower()))
-            context_words = set(re.findall(r'\w+', context.lower()))
-            overlap = len(response_words & context_words)
-            retrieval = min(1.0, overlap / max(len(context_words), 1) * 2)
+            retrieval = signal_estimator.semantic_similarity(response, context)
         else:
-            retrieval = 0.5  # neutral
-        
-        # Safety: absence of harmful patterns
-        safety = 0.9  # default high unless specific issues detected
-        
-        # Consistency: placeholder (would need comparison with previous steps)
+            retrieval = 0.5
+
+        consequence_risk = signal_estimator.estimate_consequence_signal(response)
+        policy_risk = signal_estimator.estimate_policy_signal(response)
+        safety = max(0.0, 1.0 - min(1.0, max(consequence_risk, policy_risk)))
+
         consistency = 0.8
         
         return cls(

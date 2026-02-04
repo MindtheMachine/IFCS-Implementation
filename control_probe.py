@@ -6,7 +6,6 @@ Based on: Chatterjee, A. (2026a). Control Probe: Inference-time commitment contr
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
-import re
 
 
 class CommitmentDecision(Enum):
@@ -89,30 +88,18 @@ class ControlProbeType1:
         if not prompt:
             return 0.0
         
-        # Use signal estimation instead of regex patterns
         from signal_estimation import signal_estimator
         
-        # Estimate temporal risk from prompt
         temporal_risk = signal_estimator.estimate_temporal_risk("", prompt)
-        
-        prompt_lower = prompt.lower()
-        risk = temporal_risk  # Start with temporal risk
-        
-        # Statistical analysis of missing context references
-        context_terms = [
-            "this code", "the code", "the file", "the document", "the image",
-            "the chart", "the table", "the dataset", "the log", "uploaded"
-        ]
-        context_density = sum(1 for term in context_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if context_density > 0:
-            risk = max(risk, min(0.6, context_density * 25.0))
-        
-        # Statistical analysis of ambiguous directives
-        ambiguous_terms = ["what should i do", "what do i do", "ambiguous"]
-        ambiguous_density = sum(1 for term in ambiguous_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if ambiguous_density > 0:
-            risk = max(risk, min(0.6, ambiguous_density * 30.0))
-        
+        context_signal = signal_estimator.estimate_context_dependency_signal(prompt)
+        ambiguity_signal = signal_estimator.estimate_ambiguity_signal(prompt)
+
+        risk = max(
+            temporal_risk,
+            min(0.6, context_signal * 0.8),
+            min(0.6, ambiguity_signal * 0.8),
+        )
+
         return min(1.0, risk)
         
     def evaluate(
@@ -221,7 +208,7 @@ class ControlProbeType2:
         self.max_history = config.max_history_turns
         self.history: List[InteractionTurn] = []
         self.awaiting_new_topic = False
-        self.last_topic_tokens = set()
+        self.last_topic_prompt: Optional[str] = None
         self.pending_decision: Optional[CommitmentDecision] = None
         
     def add_turn(self, prompt: str, response: str, risk_score: float):
@@ -258,18 +245,19 @@ class ControlProbeType2:
         if len(self.history) < 3:
             return False, 0.0
         
-        # Check for stance reversals
-        # Simplified: look for negation patterns between turns
+        from signal_estimation import signal_estimator
+
         reversals = 0
         for i in range(1, len(self.history)):
-            prev_response = self.history[i-1].response.lower()
-            curr_response = self.history[i].response.lower()
-            
-            # Check for opposite positions
-            if ('yes' in prev_response and 'no' in curr_response) or \
-               ('no' in prev_response and 'yes' in curr_response) or \
-               ('correct' in prev_response and 'incorrect' in curr_response):
-                reversals += 1
+            prev_response = self.history[i - 1].response
+            curr_response = self.history[i].response
+
+            prev_polarity = signal_estimator.estimate_polarity(prev_response)
+            curr_polarity = signal_estimator.estimate_polarity(curr_response)
+
+            if abs(prev_polarity) > 0.2 and abs(curr_polarity) > 0.2:
+                if prev_polarity * curr_polarity < 0:
+                    reversals += 1
         
         drift_score = reversals / len(self.history)
         return drift_score > 0.3, drift_score
@@ -283,14 +271,11 @@ class ControlProbeType2:
         if len(self.history) < 3:
             return False, 0.0
         
-        # Check if system progressively weakens stance in response to user disagreement
-        disagreement_markers = ['but', 'however', 'disagree', 'wrong', 'incorrect', 
-                               'not true', "don't think"]
-        
+        from signal_estimation import signal_estimator
+
         weakening_pattern = 0
         for i in range(1, len(self.history)):
-            user_disagreed = any(marker in self.history[i].prompt.lower() 
-                                for marker in disagreement_markers)
+            user_disagreed = signal_estimator.estimate_disagreement_signal(self.history[i].prompt) > 0.4
             
             if user_disagreed:
                 # Check if system weakened stance
@@ -305,13 +290,9 @@ class ControlProbeType2:
     
     def _estimate_certainty(self, response: str) -> float:
         """Estimate certainty level of response"""
-        certainty_markers = ['definitely', 'certainly', 'clearly', 'obviously', 'always']
-        uncertainty_markers = ['might', 'could', 'possibly', 'perhaps', 'maybe']
-        
-        cert_count = sum(1 for marker in certainty_markers if marker in response.lower())
-        uncert_count = sum(1 for marker in uncertainty_markers if marker in response.lower())
-        
-        return 0.5 + (cert_count * 0.1) - (uncert_count * 0.1)
+        from signal_estimation import signal_estimator
+
+        return signal_estimator.estimate_epistemic_certainty(response)
     
     def evaluate(self) -> Tuple[CommitmentDecision, Dict]:
         """Evaluate if interaction should halt or reset
@@ -375,26 +356,16 @@ class ControlProbeType2:
     def _activate_topic_gate(self, prompt: str, decision: CommitmentDecision):
         self.awaiting_new_topic = True
         self.pending_decision = decision
-        self.last_topic_tokens = self._tokenize_prompt(prompt)
+        self.last_topic_prompt = prompt
 
     def _is_new_topic(self, prompt: str) -> bool:
-        current_tokens = self._tokenize_prompt(prompt)
-        if not current_tokens or not self.last_topic_tokens:
+        if not self.last_topic_prompt:
             return True
 
-        overlap = len(current_tokens & self.last_topic_tokens)
-        union = len(current_tokens | self.last_topic_tokens)
-        similarity = overlap / union if union else 0.0
-        return similarity < 0.5
+        from signal_estimation import signal_estimator
 
-    def _tokenize_prompt(self, prompt: str) -> set:
-        tokens = re.findall(r"[a-zA-Z]{4,}", prompt.lower())
-        stopwords = {
-            "this", "that", "with", "from", "your", "have", "what", "would",
-            "should", "could", "about", "please", "think", "being", "their",
-            "there", "which", "where", "when", "while", "these", "those"
-        }
-        return {t for t in tokens if t not in stopwords}
+        similarity = signal_estimator.semantic_similarity(prompt, self.last_topic_prompt)
+        return similarity < 0.35
     
     def generate_halt_response(self, reason: Dict) -> str:
         """Generate response when halting interaction
