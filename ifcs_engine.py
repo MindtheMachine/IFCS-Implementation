@@ -686,19 +686,43 @@ class IFCSEngine:
         return combined_signal * 0.1  # Very low baseline risk
 
     def prompt_structural_signals(self, prompt: str) -> Dict[str, float]:
-        """Estimate structural risk from prompt using signal estimation (domain-agnostic)."""
+        """Enhanced structural risk estimation using fuzzy logic and semantic analysis"""
         if not prompt:
             return {}
         
-        # Use signal estimation instead of regex patterns
-        from signal_estimation import signal_estimator
+        try:
+            # Use enhanced signal estimation with fuzzy logic and semantic analysis
+            from enhanced_signal_estimator import enhanced_signal_estimator
+            
+            # Get enhanced signals using fuzzy logic and semantic analysis
+            signals = enhanced_signal_estimator.estimate_structural_signals(prompt)
+            
+            # Validate signals are in proper range
+            validated_signals = {}
+            for signal_type, value in signals.items():
+                if isinstance(value, (int, float)) and 0.0 <= value <= 1.0 and not (value != value):  # Check for NaN
+                    validated_signals[signal_type] = value
+                else:
+                    print(f"[IFCS] Warning: Invalid signal value for {signal_type}: {value}, using 0.0")
+                    validated_signals[signal_type] = 0.0
+            
+            return validated_signals
+            
+        except Exception as e:
+            # Graceful fallback to original heuristic approach
+            print(f"[IFCS] Enhanced signal estimation failed: {e}, falling back to heuristic approach")
+            return self._fallback_heuristic_signals(prompt)
+    
+    def _fallback_heuristic_signals(self, prompt: str) -> Dict[str, float]:
+        """Fallback heuristic signal estimation (original implementation)"""
+        if not prompt:
+            return {}
         
-        # Estimate temporal risk from prompt
-        temporal_risk = signal_estimator.estimate_temporal_risk("", prompt)  # Empty response, analyze prompt
+        # Use signal estimation for temporal risk
+        from signal_estimation import signal_estimator
+        temporal_risk = signal_estimator.estimate_temporal_risk("", prompt)
         
         prompt_lower = prompt.lower()
-        
-        # Use statistical analysis instead of hardcoded patterns
         signals = {}
         
         # Jurisdictional risk (permission-seeking language)
