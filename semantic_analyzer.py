@@ -193,103 +193,46 @@ class SemanticAnalyzer:
         )
     
     def analyze_domain(self, text: str) -> Dict[str, SemanticScore]:
-        """Analyze domain-specific signals using statistical density analysis
-        
-        Industry approach: Statistical domain signal estimation, no hardcoded word lists
-        Returns: Dictionary of domain scores with signal-based analysis
-        """
+        """Analyze domain-specific signals using semantic similarity + fuzzy logic."""
         if not text or not text.strip():
             return {
                 'medical': SemanticScore(score=0.0, confidence=0.0, features={}, signals=[]),
                 'legal': SemanticScore(score=0.0, confidence=0.0, features={}, signals=[]),
                 'financial': SemanticScore(score=0.0, confidence=0.0, features={}, signals=[])
             }
-        
-        words = text.lower().split()
+
+        words = text.split()
+        word_count = len(words)
         domain_scores = {}
-        
-        # Medical domain signal estimation (statistical approach)
-        medical_signal = self._estimate_medical_domain_signal(words)
-        medical_confidence = min(1.0, len(words) / 30.0) if medical_signal > 0.1 else 0.0
-        
+
+        medical_signal = signal_estimator.estimate_domain_signal(text, "medical")
+        medical_confidence = min(1.0, word_count / 30.0) if medical_signal > 0.1 else 0.0
         domain_scores['medical'] = SemanticScore(
             score=medical_signal,
             confidence=medical_confidence,
-            features={'medical_domain_signal': medical_signal, 'word_count': len(words)},
+            features={'medical_domain_signal': medical_signal, 'word_count': word_count},
             signals=['medical_domain'] if medical_signal > 0.1 else []
         )
-        
-        # Legal domain signal estimation (statistical approach)
-        legal_signal = self._estimate_legal_domain_signal(words)
-        legal_confidence = min(1.0, len(words) / 30.0) if legal_signal > 0.1 else 0.0
-        
+
+        legal_signal = signal_estimator.estimate_domain_signal(text, "legal")
+        legal_confidence = min(1.0, word_count / 30.0) if legal_signal > 0.1 else 0.0
         domain_scores['legal'] = SemanticScore(
             score=legal_signal,
             confidence=legal_confidence,
-            features={'legal_domain_signal': legal_signal, 'word_count': len(words)},
+            features={'legal_domain_signal': legal_signal, 'word_count': word_count},
             signals=['legal_domain'] if legal_signal > 0.1 else []
         )
-        
-        # Financial domain signal estimation (statistical approach)
-        financial_signal = self._estimate_financial_domain_signal(words)
-        financial_confidence = min(1.0, len(words) / 30.0) if financial_signal > 0.1 else 0.0
-        
+
+        financial_signal = signal_estimator.estimate_domain_signal(text, "financial")
+        financial_confidence = min(1.0, word_count / 30.0) if financial_signal > 0.1 else 0.0
         domain_scores['financial'] = SemanticScore(
             score=financial_signal,
             confidence=financial_confidence,
-            features={'financial_domain_signal': financial_signal, 'word_count': len(words)},
+            features={'financial_domain_signal': financial_signal, 'word_count': word_count},
             signals=['financial_domain'] if financial_signal > 0.1 else []
         )
-        
+
         return domain_scores
-    
-    def _estimate_medical_domain_signal(self, words: List[str]) -> float:
-        """Estimate medical domain signal using statistical density"""
-        # Core medical concept density (statistical approach)
-        medical_concepts = {
-            'pain', 'fever', 'nausea', 'headache', 'fatigue', 'symptoms',
-            'disease', 'condition', 'disorder', 'syndrome', 'illness',
-            'treatment', 'medication', 'therapy', 'prescription', 'medicine',
-            'doctor', 'physician', 'nurse', 'medical', 'hospital'
-        }
-        
-        medical_count = sum(1 for word in words if word in medical_concepts)
-        medical_density = medical_count / max(len(words), 1)
-        
-        # Require minimum threshold for domain detection
-        return min(1.0, medical_density * 4.0) if medical_density >= 0.05 else 0.0
-    
-    def _estimate_legal_domain_signal(self, words: List[str]) -> float:
-        """Estimate legal domain signal using statistical density"""
-        # Core legal concept density (statistical approach)
-        legal_concepts = {
-            'law', 'legal', 'illegal', 'lawsuit', 'court', 'attorney',
-            'rights', 'liability', 'responsibility', 'obligation', 'duty',
-            'contract', 'agreement', 'violation', 'compliance', 'employment',
-            'lawyer', 'counsel'
-        }
-        
-        legal_count = sum(1 for word in words if word in legal_concepts)
-        legal_density = legal_count / max(len(words), 1)
-        
-        # Require minimum threshold for domain detection
-        return min(1.0, legal_density * 4.0) if legal_density >= 0.05 else 0.0
-    
-    def _estimate_financial_domain_signal(self, words: List[str]) -> float:
-        """Estimate financial domain signal using statistical density"""
-        # Core financial concept density (statistical approach)
-        financial_concepts = {
-            'stock', 'bond', 'investment', 'portfolio', 'securities',
-            'market', 'trading', 'exchange', 'price', 'financial',
-            'profit', 'loss', 'return', 'risk', 'yield', 'dividend',
-            'advisor', 'broker', 'analyst'
-        }
-        
-        financial_count = sum(1 for word in words if word in financial_concepts)
-        financial_density = financial_count / max(len(words), 1)
-        
-        # Require minimum threshold for domain detection
-        return min(1.0, financial_density * 4.0) if financial_density >= 0.05 else 0.0
 
 
 # Global instance for use throughout IFCS
