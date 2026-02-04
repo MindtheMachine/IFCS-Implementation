@@ -1,6 +1,6 @@
 """
 Trilogy Orchestration System
-Coordinates ECR → Control Probe Type-1 → IFCS → Control Probe Type-2
+Coordinates ECR - Control Probe Type-1 - IFCS - Control Probe Type-2
 """
 
 from typing import Dict, Tuple, Optional, List
@@ -73,7 +73,7 @@ class TrilogyOrchestrator:
     def process(self, prompt: str, context: str = "") -> TrilogyResult:
         """Process prompt through full trilogy pipeline
         
-        Pipeline: ECR → CP Type-1 → IFCS → [output] → CP Type-2
+        Pipeline: ECR - CP Type-1 - IFCS - [output] - CP Type-2
         
         Args:
             prompt: User prompt
@@ -118,7 +118,13 @@ class TrilogyOrchestrator:
         if self.config.ecr.adaptive_k:
             structural_signals = self.ifcs.prompt_structural_signals(prompt)
             max_signal = max(structural_signals.values()) if structural_signals else 0.0
-            if max_signal >= self.config.ecr.adaptive_k_high_threshold:
+            
+            # Pure C6-compliant adaptive K based solely on maximum structural signal
+            # No domain detection, no text comparison, no heuristics - just the emergent metric
+            if max_signal >= self.config.ecr.adaptive_k_critical_threshold:
+                candidate_k = self.config.ecr.adaptive_k_critical
+                reason = f"critical structural risk (max={max_signal:.2f})"
+            elif max_signal >= self.config.ecr.adaptive_k_high_threshold:
                 candidate_k = self.config.ecr.adaptive_k_high
                 reason = f"high structural risk (max={max_signal:.2f})"
             elif max_signal >= self.config.ecr.adaptive_k_mid_threshold:
@@ -127,6 +133,7 @@ class TrilogyOrchestrator:
             else:
                 candidate_k = self.config.ecr.adaptive_k_low
                 reason = f"low structural risk (max={max_signal:.2f})"
+            
             candidate_k = min(candidate_k, self.config.ecr.K)
             print(f"[ECR] Adaptive K={candidate_k} based on {reason}")
 
@@ -163,7 +170,7 @@ class TrilogyOrchestrator:
             # Output blocked - generate appropriate response
             final_response = self.cp_type1.generate_blocked_response(prompt, cp1_debug)
             
-            print(f"[CP Type-1] Output BLOCKED (σ={sigma:.3f} < τ={self.config.control_probe.tau:.3f})")
+            print(f"[CP Type-1] Output BLOCKED (-={sigma:.3f} < -={self.config.control_probe.tau:.3f})")
             
             # Pipeline ends here
             processing_time = (datetime.now() - start_time).total_seconds() * 1000
@@ -185,7 +192,7 @@ class TrilogyOrchestrator:
                 processing_time_ms=processing_time
             )
         
-        print(f"[CP Type-1] PASSED (σ={sigma:.3f} ≥ τ={self.config.control_probe.tau:.3f})")
+        print(f"[CP Type-1] PASSED (-={sigma:.3f} - -={self.config.control_probe.tau:.3f})")
         
         # Stage 3: IFCS - Commitment shaping
         print("\n[Stage 3] IFCS: Commitment Shaping")
@@ -381,27 +388,27 @@ class ComparisonEngine:
         changes = []
         
         if regulated_result.cp_type1_fired:
-            changes.append("⚠ Control Probe Type-1 blocked the baseline output (inadmissible)")
+            changes.append("- Control Probe Type-1 blocked the baseline output (inadmissible)")
         
         if regulated_result.ifcs_fired:
             ifcs_metrics = regulated_result.ifcs_metrics
             if ifcs_metrics and 'reduction_percent' in ifcs_metrics:
                 reduction = ifcs_metrics['reduction_percent']
-                changes.append(f"✓ IFCS reduced commitment risk by {reduction:.1f}%")
+                changes.append(f"- IFCS reduced commitment risk by {reduction:.1f}%")
             else:
-                changes.append("✓ IFCS reshaped commitment strength")
+                changes.append("- IFCS reshaped commitment strength")
         
         if regulated_result.cp_type2_fired:
-            changes.append(f"⚠ Control Probe Type-2 triggered ({regulated_result.cp_type2_decision})")
+            changes.append(f"- Control Probe Type-2 triggered ({regulated_result.cp_type2_decision})")
         
         if regulated_result.ecr_fired and baseline_response != regulated_response:
-            changes.append("✓ ECR selected a different candidate than the baseline sample")
+            changes.append("- ECR selected a different candidate than the baseline sample")
         
         if not any([regulated_result.cp_type1_fired, regulated_result.ifcs_fired, regulated_result.cp_type2_fired]):
             if baseline_response == regulated_response:
-                changes.append("→ No intervention needed (baseline was appropriate)")
+                changes.append("- No intervention needed (baseline was appropriate)")
             elif not changes:
-                changes.append("→ No additional intervention beyond ECR selection")
+                changes.append("- No additional intervention beyond ECR selection")
         
         comparison['key_changes'] = changes
 
@@ -439,29 +446,22 @@ class ComparisonEngine:
     
     @staticmethod
     def _count_commitment_markers(text: str) -> Dict[str, int]:
-        """Count commitment markers in text"""
-        from trilogy_config import UNIVERSAL_MARKERS, AUTHORITY_MARKERS
-        
-        text_lower = text.lower()
+        """Count commitment markers using statistical signal proxies"""
+        from signal_estimation import signal_estimator
 
-        def count_markers(markers):
-            total = 0
-            for marker in markers:
-                pattern = r'\\b' + re.escape(marker) + r'\\b'
-                total += len(re.findall(pattern, text_lower))
-            return total
+        universal_score = signal_estimator.estimate_scope_breadth(text)
+        authority_score = signal_estimator.estimate_authority_posture(text)
+        certainty_score = signal_estimator.estimate_epistemic_certainty(text)
 
-        universal_count = count_markers(UNIVERSAL_MARKERS)
-        authority_count = count_markers(AUTHORITY_MARKERS)
+        universal_count = int(round(universal_score * 10))
+        authority_count = int(round(authority_score * 10))
+        certainty_count = int(round(certainty_score * 10))
 
-        certainty_markers = ['definitely', 'certainly', 'clearly', 'obviously']
-        certainty_count = count_markers(certainty_markers)
-        
         return {
-            'universal': universal_count,
-            'authority': authority_count,
-            'certainty': certainty_count,
-            'total': universal_count + authority_count + certainty_count
+            "universal": universal_count,
+            "authority": authority_count,
+            "certainty": certainty_count,
+            "total": universal_count + authority_count + certainty_count,
         }
     
     @staticmethod
@@ -476,7 +476,7 @@ class ComparisonEngine:
         # Mechanisms
         lines.append("Mechanisms Triggered:")
         for mechanism, fired in comparison['mechanisms_fired'].items():
-            status = "✓ FIRED" if fired else "○ Not triggered"
+            status = "- FIRED" if fired else "- Not triggered"
             lines.append(f"  {mechanism:15s} {status}")
         
         lines.append("")
@@ -499,12 +499,12 @@ class ComparisonEngine:
             
             lines.append("Admissibility Gate (CP Type-1):")
             if sigma is not None and tau is not None:
-                lines.append(f"  Decision: {decision.upper()} (σ={sigma:.3f}, τ={tau:.3f})")
+                lines.append(f"  Decision: {decision.upper()} (-={sigma:.3f}, -={tau:.3f})")
             else:
                 lines.append(f"  Decision: {decision.upper()}")
             
             if sigma_raw is not None:
-                lines.append(f"  σ_raw: {sigma_raw:.3f}")
+                lines.append(f"  -_raw: {sigma_raw:.3f}")
             if prompt_risk is not None:
                 lines.append(f"  Prompt risk: {prompt_risk:.2f}")
             lines.append("")
@@ -512,18 +512,18 @@ class ComparisonEngine:
         # Commitment markers
         markers = comparison['commitment_markers']
         lines.append("Commitment Marker Analysis:")
-        lines.append(f"  Universal markers:  {markers['baseline']['universal']:3d} → {markers['regulated']['universal']:3d} "
+        lines.append(f"  Universal markers:  {markers['baseline']['universal']:3d} - {markers['regulated']['universal']:3d} "
                     f"({markers['reduction']['universal']:+d})")
-        lines.append(f"  Authority markers:  {markers['baseline']['authority']:3d} → {markers['regulated']['authority']:3d} "
+        lines.append(f"  Authority markers:  {markers['baseline']['authority']:3d} - {markers['regulated']['authority']:3d} "
                     f"({markers['reduction']['authority']:+d})")
-        lines.append(f"  Certainty markers:  {markers['baseline']['certainty']:3d} → {markers['regulated']['certainty']:3d} "
+        lines.append(f"  Certainty markers:  {markers['baseline']['certainty']:3d} - {markers['regulated']['certainty']:3d} "
                     f"({markers['reduction']['certainty']:+d})")
         
         lines.append("")
         
         # Statistics
         lines.append("Statistics:")
-        lines.append(f"  Response length:    {comparison['baseline_length']:4d} → {comparison['regulated_length']:4d} chars "
+        lines.append(f"  Response length:    {comparison['baseline_length']:4d} - {comparison['regulated_length']:4d} chars "
                     f"({comparison['length_change_pct']:+.1f}%)")
         lines.append(f"  Processing time:    {comparison['processing_time_ms']:.0f}ms")
         lines.append(f"  Candidates tested:  {comparison['num_candidates_evaluated']}")
@@ -554,7 +554,7 @@ class ComparisonEngine:
         
         # Header
         lines.append("=" * (width * 2 + 3))
-        lines.append(f"{'BASELINE (Unregulated)':^{width}} │ {'REGULATED (ECR-CP-IFCS)':^{width}}")
+        lines.append(f"{'BASELINE (Unregulated)':^{width}} - {'REGULATED (ECR-CP-IFCS)':^{width}}")
         lines.append("=" * (width * 2 + 3))
         lines.append("")
         
@@ -573,7 +573,7 @@ class ComparisonEngine:
         for i in range(max_lines):
             left = baseline_lines[i] if i < len(baseline_lines) else ""
             right = regulated_lines[i] if i < len(regulated_lines) else ""
-            lines.append(f"{left:<{width}} │ {right:<{width}}")
+            lines.append(f"{left:<{width}} - {right:<{width}}")
         
         lines.append("")
         lines.append("=" * (width * 2 + 3))

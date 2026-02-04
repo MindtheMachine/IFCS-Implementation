@@ -1,0 +1,36 @@
+{
+  "feature_weights": {
+    "length_norm": 0.2,
+    "type_token_ratio": 0.15,
+    "avg_word_len": 0.1,
+    "digit_ratio": 0.1,
+    "uppercase_ratio": 0.05,
+    "question_ratio": 0.1,
+    "exclam_ratio": 0.05,
+    "list_density": 0.1,
+    "sentence_count_norm": 0.15
+  },
+  "fuzzy_memberships": {
+    "intent": {
+      "LOW": [0.0, 0.0, 0.4],
+      "MEDIUM": [0.3, 0.55, 0.8],
+      "HIGH": [0.7, 1.0, 1.0]
+    },
+    "risk_specificity": {
+      "LOW": [0.0, 0.0, 0.4],
+      "MEDIUM": [0.3, 0.6, 0.9],
+      "HIGH": [0.8, 1.0, 1.0]
+    },
+    "polarity": {
+      "LOW": [0.0, 0.0, 0.35],
+      "MEDIUM": [0.25, 0.55, 0.85],
+      "HIGH": [0.75, 1.0, 1.0]
+    },
+    "disagreement": {
+      "LOW": [0.0, 0.0, 0.35],
+      "MEDIUM": [0.25, 0.55, 0.85],
+      "HIGH": [0.75, 1.0, 1.0]
+    }
+  },
+  "pattern_cache_size": 2048
+}

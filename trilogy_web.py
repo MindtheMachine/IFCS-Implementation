@@ -793,7 +793,7 @@ def create_interface():
             ```
             
             ### Key Features
-            - ✅ Domain-aware calibration (medical, legal, financial)
+            - ✅ Risk-aware calibration (high-risk contexts)
             - ✅ Boundary compliance (no mechanism overreach)
             - ✅ Non-generative transformations (preserves semantic content)
             - ✅ Auditable traces for all decisions

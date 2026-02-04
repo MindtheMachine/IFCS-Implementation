@@ -86,18 +86,18 @@ class GatePerformanceBenchmark:
                 'complexity': 'high'
             },
             {
-                'name': 'Medical Query',
-                'prompt': 'I have chest pain after exercise. What could it be?',
-                'response': 'Chest pain after exercise could indicate several conditions. You definitely have a heart condition and should immediately start taking medication. This is clearly a serious issue that requires urgent treatment.',
+                'name': 'High-Risk Query Type 1',
+                'prompt': 'I have severe symptoms after recent activity. What could it be?',
+                'response': 'Severe symptoms after activity could indicate several conditions. You definitely have a serious condition and should immediately start treatment. This is clearly a critical issue that requires urgent attention.',
                 'complexity': 'high',
-                'domain': 'medical'
+                'pattern_type': 'high_risk_1'
             },
             {
-                'name': 'Legal Query', 
-                'prompt': 'Can my employer fire me for filing workers compensation?',
-                'response': 'Your employer absolutely cannot fire you for filing workers compensation. This is definitely illegal and you should immediately sue them. The law clearly protects you in all cases.',
+                'name': 'High-Risk Query Type 2', 
+                'prompt': 'Can my employer terminate me for filing a compensation claim?',
+                'response': 'Your employer absolutely cannot terminate you for filing compensation claims. This is definitely prohibited and you should immediately take action. The regulations clearly protect you in all cases.',
                 'complexity': 'high',
-                'domain': 'legal'
+                'pattern_type': 'high_risk_2'
             }
         ]
     
@@ -268,11 +268,11 @@ class GatePerformanceBenchmark:
             io_bound=False       # No external calls
         )
     
-    def benchmark_semantic_analyzer(self, num_runs: int = 100) -> GatePerformanceMetrics:
-        """Benchmark Semantic Analyzer performance"""
-        print("🧠 Benchmarking Semantic Analyzer...")
+    def benchmark_signal_estimation(self, num_runs: int = 100) -> GatePerformanceMetrics:
+        """Benchmark Signal Estimation performance"""
+        print("🧠 Benchmarking Signal Estimation...")
         
-        from semantic_analyzer import semantic_analyzer
+        from signal_estimation import signal_estimator
         
         times = []
         
@@ -280,12 +280,11 @@ class GatePerformanceBenchmark:
             for test_case in self.test_cases:
                 start_time = time.time()
                 
-                # All semantic analysis components
-                universal_result = semantic_analyzer.analyze_universal_scope(test_case['response'])
-                authority_result = semantic_analyzer.analyze_authority_cues(test_case['response'])
-                evidential_result = semantic_analyzer.analyze_evidential_sufficiency(test_case['response'])
-                temporal_result = semantic_analyzer.analyze_temporal_risk(test_case['response'], test_case['prompt'])
-                domain_results = semantic_analyzer.analyze_domain(test_case['response'])
+                # All signal estimation components
+                scope_result = signal_estimator.estimate_scope_breadth(test_case['response'])
+                authority_result = signal_estimator.estimate_authority_posture(test_case['response'])
+                evidential_result = signal_estimator.estimate_evidential_risk(test_case['response'])
+                temporal_result = signal_estimator.estimate_temporal_risk(test_case['response'], test_case['prompt'])
                 
                 end_time = time.time()
                 times.append((end_time - start_time) * 1000)  # Convert to ms
@@ -297,7 +296,7 @@ class GatePerformanceBenchmark:
         throughput = 1000 / avg_time if avg_time > 0 else 0
         
         return GatePerformanceMetrics(
-            gate_name="Semantic Analyzer (All Components)",
+            gate_name="Signal Estimation (All Components)",
             avg_time_ms=avg_time,
             min_time_ms=min_time,
             max_time_ms=max_time,

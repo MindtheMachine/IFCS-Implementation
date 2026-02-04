@@ -190,11 +190,11 @@ class DashboardMetricsCollector:
         total_processing_time_ms: float = 0.0,
         metadata: Dict[str, Any] = None
     ):
-        """Record a κ(z*) classification event
+        """Record a -(z*) classification event
         
         Args:
-            kappa_value: The κ(z*) decision (0 or 1)
-            computation_time_ms: Time taken for κ(z*) computation
+            kappa_value: The -(z*) decision (0 or 1)
+            computation_time_ms: Time taken for -(z*) computation
             is_error: Whether this was a classification error
             is_fallback: Whether this used fallback logic
             latency_improvement_ms: Latency improvement from avoided IFCS processing
@@ -248,14 +248,14 @@ class DashboardMetricsCollector:
     
     def _check_performance_alerts(self, computation_time_ms: float, metadata: Dict[str, Any] = None):
         """Check for performance-related alerts"""
-        # κ(z*) computation time alert
+        # -(z*) computation time alert
         if computation_time_ms > self.alert_thresholds['kappa_computation_time_ms']:
             alert_id = f"kappa_performance_{int(time.time())}"
             alert = Alert(
                 id=alert_id,
                 level=AlertLevel.WARNING,
-                title="κ(z*) Computation Performance Degradation",
-                message=f"κ(z*) computation took {computation_time_ms:.2f}ms, exceeding target of {self.alert_thresholds['kappa_computation_time_ms']}ms",
+                title="-(z*) Computation Performance Degradation",
+                message=f"-(z*) computation took {computation_time_ms:.2f}ms, exceeding target of {self.alert_thresholds['kappa_computation_time_ms']}ms",
                 timestamp=datetime.now(),
                 metric_name='kappa_computation_time_ms',
                 metric_value=computation_time_ms,
@@ -263,7 +263,7 @@ class DashboardMetricsCollector:
                 metadata=metadata
             )
             self.alerts[alert_id] = alert
-            print(f"[Dashboard] ⚠️  ALERT: {alert.title}")
+            print(f"[Dashboard] --  ALERT: {alert.title}")
         
         # Performance degradation alert (compared to baseline)
         if computation_time_ms > self.baseline_kappa_time_ms * self.alert_thresholds['performance_degradation']:
@@ -272,7 +272,7 @@ class DashboardMetricsCollector:
                 id=alert_id,
                 level=AlertLevel.ERROR,
                 title="Significant Performance Degradation",
-                message=f"κ(z*) computation time {computation_time_ms:.2f}ms is {computation_time_ms/self.baseline_kappa_time_ms:.1f}x baseline ({self.baseline_kappa_time_ms:.2f}ms)",
+                message=f"-(z*) computation time {computation_time_ms:.2f}ms is {computation_time_ms/self.baseline_kappa_time_ms:.1f}x baseline ({self.baseline_kappa_time_ms:.2f}ms)",
                 timestamp=datetime.now(),
                 metric_name='kappa_computation_time_ms',
                 metric_value=computation_time_ms,
@@ -280,7 +280,7 @@ class DashboardMetricsCollector:
                 metadata=metadata
             )
             self.alerts[alert_id] = alert
-            print(f"[Dashboard] 🚨 CRITICAL ALERT: {alert.title}")
+            print(f"[Dashboard] - CRITICAL ALERT: {alert.title}")
     
     def _check_error_rate_alerts(self):
         """Check for classification error rate alerts"""
@@ -303,7 +303,7 @@ class DashboardMetricsCollector:
                 metadata={'total_classifications': total, 'total_errors': self.counters['classification_errors']}
             )
             self.alerts[alert_id] = alert
-            print(f"[Dashboard] 🚨 ERROR ALERT: {alert.title}")
+            print(f"[Dashboard] - ERROR ALERT: {alert.title}")
     
     def _check_fallback_rate_alerts(self):
         """Check for fallback scenario rate alerts"""
@@ -326,7 +326,7 @@ class DashboardMetricsCollector:
                 metadata={'total_classifications': total, 'total_fallbacks': self.counters['fallback_scenarios']}
             )
             self.alerts[alert_id] = alert
-            print(f"[Dashboard] ⚠️  FALLBACK ALERT: {alert.title}")
+            print(f"[Dashboard] --  FALLBACK ALERT: {alert.title}")
     
     def get_commitment_bearing_ratio_over_time(self, minutes: int = None) -> List[Dict]:
         """Get commitment-bearing vs non-commitment-bearing ratios over time
@@ -366,7 +366,7 @@ class DashboardMetricsCollector:
         }
     
     def get_kappa_performance_metrics(self, minutes: int = None) -> Dict[str, Any]:
-        """Get κ(z*) computation performance metrics
+        """Get -(z*) computation performance metrics
         
         Args:
             minutes: Time window in minutes (default: instance window)
@@ -436,7 +436,7 @@ class DashboardMetricsCollector:
             if alert_id in self.alerts:
                 self.alerts[alert_id].resolved = True
                 self.alerts[alert_id].resolved_timestamp = datetime.now()
-                print(f"[Dashboard] ✅ Alert resolved: {alert_id}")
+                print(f"[Dashboard] - Alert resolved: {alert_id}")
                 return True
             return False
     
@@ -504,41 +504,41 @@ class DashboardMetricsCollector:
         with open(filepath, 'w') as f:
             json.dump(dashboard_data, f, indent=2)
         
-        print(f"[Dashboard] 📊 Exported dashboard data to {filepath}")
+        print(f"[Dashboard] - Exported dashboard data to {filepath}")
     
     def print_dashboard_summary(self):
         """Print comprehensive dashboard summary"""
         snapshot = self.get_dashboard_snapshot()
         
         print("\n" + "="*80)
-        print("🎯 IFCS COMMITMENT-ACTUALITY GATE DASHBOARD SUMMARY")
+        print("- IFCS COMMITMENT-ACTUALITY GATE DASHBOARD SUMMARY")
         print("="*80)
         
         # Key metrics
-        print(f"📊 CLASSIFICATION METRICS:")
+        print(f"- CLASSIFICATION METRICS:")
         print(f"   Total Classifications: {snapshot.total_classifications}")
         print(f"   Commitment-Bearing Ratio: {snapshot.commitment_bearing_ratio:.1%}")
         print(f"   Non-Commitment-Bearing: {(1-snapshot.commitment_bearing_ratio):.1%}")
         
         # Performance metrics
-        print(f"\n⚡ PERFORMANCE METRICS:")
-        print(f"   κ(z*) Avg Computation Time: {snapshot.avg_kappa_computation_time_ms:.2f}ms")
+        print(f"\n- PERFORMANCE METRICS:")
+        print(f"   -(z*) Avg Computation Time: {snapshot.avg_kappa_computation_time_ms:.2f}ms")
         print(f"   Performance Status: {snapshot.performance_status.upper()}")
         print(f"   Recent Latency Improvement: {snapshot.recent_latency_improvement_ms:.2f}ms")
         
         # Quality metrics
-        print(f"\n🎯 QUALITY METRICS:")
+        print(f"\n- QUALITY METRICS:")
         print(f"   Error Rate: {snapshot.error_rate:.1%}")
         print(f"   Fallback Rate: {snapshot.fallback_rate:.1%}")
         
         # Alerts
-        print(f"\n🚨 ALERTS:")
+        print(f"\n- ALERTS:")
         if snapshot.active_alerts:
             for alert in snapshot.active_alerts:
                 print(f"   [{alert.level.value.upper()}] {alert.title}")
                 print(f"      {alert.message}")
         else:
-            print("   ✅ No active alerts")
+            print("   - No active alerts")
         
         print("="*80)
     
@@ -547,7 +547,7 @@ class DashboardMetricsCollector:
         with self.lock:
             self.counters.clear()
             self.last_reset = datetime.now()
-            print("[Dashboard] 🔄 Counters reset")
+            print("[Dashboard] - Counters reset")
     
     def update_alert_thresholds(self, thresholds: Dict[str, float]):
         """Update alert thresholds
@@ -557,7 +557,7 @@ class DashboardMetricsCollector:
         """
         with self.lock:
             self.alert_thresholds.update(thresholds)
-            print(f"[Dashboard] 🎛️  Alert thresholds updated: {thresholds}")
+            print(f"[Dashboard] --  Alert thresholds updated: {thresholds}")
 
 
 # Global metrics collector instance

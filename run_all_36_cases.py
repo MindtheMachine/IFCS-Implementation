@@ -13,6 +13,23 @@ import json
 import time
 
 
+def load_env_file(env_path: str) -> None:
+    """Load uncommented KEY=VALUE pairs from a .env file into os.environ."""
+    if not os.path.exists(env_path):
+        return
+
+    with open(env_path, "r", encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            name, value = line.split("=", 1)
+            name = name.strip()
+            value = value.strip().strip('"').strip("'")
+            if name:
+                os.environ[name] = value
+
+
 def main():
     """Run all 36 taxonomy test cases"""
     print("="*80)
@@ -22,12 +39,15 @@ def main():
     start_time = time.time()
     
     try:
+        # Load .env values (uncommented only)
+        load_env_file(os.path.join(os.path.dirname(__file__), ".env"))
+
         # Initialize the trilogy app (uses .env configuration)
         app = TrilogyApp()
         
-        print(f"✅ Initialized TrilogyApp")
-        print(f"✅ LLM Provider: {type(app.llm_provider).__name__}")
-        print(f"✅ Model: {app.llm_provider.get_model_name()}")
+        print("[OK] Initialized TrilogyApp")
+        print(f"[OK] LLM Provider: {type(app.llm_provider).__name__}")
+        print(f"[OK] Model: {app.llm_provider.get_model_name()}")
         
         # Run all 36 test cases
         print(f"\nRunning all {len(TEST_CASES_36_TAXONOMY)} test cases...")
@@ -68,7 +88,7 @@ def main():
         return True
         
     except Exception as e:
-        print(f"❌ ERROR: {e}")
+        print(f"ERROR: {e}")
         import traceback
         traceback.print_exc()
         return False

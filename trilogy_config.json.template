@@ -46,7 +46,16 @@
     "beta": 0.2,
     "gamma": 0.2,
     "delta": 0.2,
-    "epsilon": 0.2
+    "epsilon": 0.2,
+    "_adaptive_k_comment": "Adaptive candidate count based on structural risk and critical domain emergence",
+    "adaptive_k": true,
+    "adaptive_k_low": 1,
+    "adaptive_k_mid": 2,
+    "adaptive_k_high": 3,
+    "adaptive_k_critical": 4,
+    "adaptive_k_mid_threshold": 0.5,
+    "adaptive_k_high_threshold": 0.7,
+    "adaptive_k_critical_threshold": 0.8
   },
   "control_probe": {
     "_comment": "Control Probe (Type-1 and Type-2)",

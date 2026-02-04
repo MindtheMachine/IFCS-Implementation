@@ -11,13 +11,28 @@ from trilogy_config import TrilogyConfig
 from trilogy_orchestrator import TrilogyOrchestrator, BaselineAgent, ComparisonEngine
 from llm_provider import LLMProviderFactory
 
-# Benchmark evaluation imports
-from benchmark_loader import BenchmarkLoader
-from benchmark_adapters import TruthfulQAAdapter, ASQAAdapter
-from benchmark_metrics import TruthfulQAMetrics, ASQAMetrics, BenchmarkMetricsAggregator
-from benchmark_orchestrator import BenchmarkOrchestrator
-from benchmark_reports import BenchmarkReportGenerator
-from benchmark_config import BenchmarkConfig, DEFAULT_TRUTHFULQA_CONFIG, DEFAULT_ASQA_CONFIG
+# Benchmark evaluation imports (optional)
+try:
+    from benchmark_loader import BenchmarkLoader
+    from benchmark_adapters import TruthfulQAAdapter, ASQAAdapter
+    from benchmark_metrics import TruthfulQAMetrics, ASQAMetrics, BenchmarkMetricsAggregator
+    from benchmark_orchestrator import BenchmarkOrchestrator
+    from benchmark_reports import BenchmarkReportGenerator
+    from benchmark_config import BenchmarkConfig, DEFAULT_TRUTHFULQA_CONFIG, DEFAULT_ASQA_CONFIG
+    _BENCHMARKS_AVAILABLE = True
+except Exception:
+    BenchmarkLoader = None
+    TruthfulQAAdapter = None
+    ASQAAdapter = None
+    TruthfulQAMetrics = None
+    ASQAMetrics = None
+    BenchmarkMetricsAggregator = None
+    BenchmarkOrchestrator = None
+    BenchmarkReportGenerator = None
+    BenchmarkConfig = None
+    DEFAULT_TRUTHFULQA_CONFIG = None
+    DEFAULT_ASQA_CONFIG = None
+    _BENCHMARKS_AVAILABLE = False
 
 
 class TrilogyApp:
@@ -96,23 +111,23 @@ class TrilogyApp:
         Returns:
             (baseline_response, regulated_response, comparison)
         """
-        print("\n" + "🔵" * 40)
+        print("\n" + "*" * 40)
         print("PROCESSING QUERY")
-        print("🔵" * 40)
+        print("*" * 40)
         
         # Run baseline
-        print("\n" + "─" * 80)
+        print("\n" + "-" * 80)
         print("BASELINE AGENT (Unregulated LLM)")
-        print("─" * 80)
+        print("-" * 80)
         baseline_start = time.time()
         baseline_response = self.baseline.process(prompt)
         baseline_time = time.time() - baseline_start
         print(f"[Baseline] Completed in {baseline_time:.2f}s")
         
         # Run trilogy
-        print("\n" + "─" * 80)
+        print("\n" + "-" * 80)
         print("TRILOGY AGENT (ECR-Control Probe-IFCS)")
-        print("─" * 80)
+        print("-" * 80)
         trilogy_start = time.time()
         regulated_result = self.trilogy.process(prompt, context)
         trilogy_time = time.time() - trilogy_start
@@ -200,9 +215,9 @@ class TrilogyApp:
         Returns:
             Results dictionary
         """
-        print("\n" + "🟢" * 40)
+        print("\n" + "*" * 40)
         print(f"TEST CASE: {test_case['id']} - {test_case['category']}")
-        print("🟢" * 40)
+        print("*" * 40)
         
         if test_case.get('multi_turn') and test_case.get('turns'):
             return self.process_multi_turn_case(test_case)
@@ -325,9 +340,9 @@ class TrilogyApp:
         Returns:
             List of results
         """
-        print("\n" + "🔴" * 40)
+        print("\n" + "*" * 40)
         print(f"RUNNING TEST SUITE ({len(test_cases)} tests)")
-        print("🔴" * 40)
+        print("*" * 40)
         
         results = []
         
@@ -346,7 +361,7 @@ class TrilogyApp:
         print("="*80)
         
         for result in results:
-            status = "✓" if result['expected_fired'] else "?"
+            status = "OK" if result['expected_fired'] else "--"
             print(f"{status} {result['test_id']:6s} {result['category']:40s} "
                   f"Expected: {result['expected_mechanism']}")
 
@@ -366,9 +381,14 @@ class TrilogyApp:
         Returns:
             (results, aggregated_stats)
         """
-        print("\n" + "🟢" * 40)
+        if not _BENCHMARKS_AVAILABLE:
+            raise RuntimeError(
+                "Benchmark modules are not available. The benchmark subsystem was removed in cleanup. "
+                "Use the core pipeline or reintroduce benchmark modules if needed."
+            )
+        print("\n" + "*" * 40)
         print(f"BENCHMARK EVALUATION: {benchmark_name.upper()}")
-        print("🟢" * 40)
+        print("*" * 40)
 
         # Use default config if none provided
         if config is None:
@@ -450,7 +470,7 @@ class TrilogyApp:
                 improvement = improvements.get(metric, 0)
 
                 sign = "+" if improvement >= 0 else ""
-                print(f"  {metric}: {baseline_val:.4f} → {regulated_val:.4f} ({sign}{improvement:.4f})")
+                print(f"  {metric}: {baseline_val:.4f} - {regulated_val:.4f} ({sign}{improvement:.4f})")
 
         print(f"\nResults saved to:")
         print(f"  CSV: {config.results_csv_path}")
@@ -562,7 +582,7 @@ def main():
         print("  --test-suite                   : Run test suite")
         print("  --benchmark truthfulqa|asqa    : Run benchmark evaluation")
         print("\nExamples:")
-        print("  python trilogy_app.py --prompt 'What is the best programming language?'")
+        print("  python trilogy_app.py --prompt 'What is the best programming language-'")
         print("  python trilogy_app.py --benchmark truthfulqa --batch-size 100")
         print("  python trilogy_app.py --benchmark asqa --batch-size 50 --rate-limit 2.0")
 

@@ -19,7 +19,7 @@ class CommitmentDecision(Enum):
 
 @dataclass
 class AdmissibilitySignal:
-    """Evaluative support signal σ(z)"""
+    """Evaluative support signal -(z)"""
     confidence: float  # 0-1
     consistency: float  # 0-1
     grounding: float  # 0-1
@@ -89,30 +89,24 @@ class ControlProbeType1:
         if not prompt:
             return 0.0
         
-        # Use signal estimation instead of regex patterns
-        from signal_estimation import signal_estimator
+        # Use semantic signal estimation (no pattern matching)
+        from signal_estimation import signal_estimator, compute_text_stats
+        from enhanced_signal_estimator import enhanced_signal_estimator
+        from semantic_signal_framework import unified_semantic_estimator
         
         # Estimate temporal risk from prompt
         temporal_risk = signal_estimator.estimate_temporal_risk("", prompt)
         
-        prompt_lower = prompt.lower()
-        risk = temporal_risk  # Start with temporal risk
+        # Structural risk using semantic intent + fuzzy weighting
+        structural_signals = enhanced_signal_estimator.estimate_structural_signals(prompt)
+        structural_risk = max(structural_signals.values()) if structural_signals else 0.0
         
-        # Statistical analysis of missing context references
-        context_terms = [
-            "this code", "the code", "the file", "the document", "the image",
-            "the chart", "the table", "the dataset", "the log", "uploaded"
-        ]
-        context_density = sum(1 for term in context_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if context_density > 0:
-            risk = max(risk, min(0.6, context_density * 25.0))
+        stats = compute_text_stats(prompt)
+        specificity = unified_semantic_estimator.estimate_semantic_signals(prompt).risk_specificity
+        underspec_score = max(0.0, (1.0 - specificity) * (1.0 - stats["length_norm"]))
+        ambiguity_score = max(0.0, (1.0 - specificity) * stats["question_ratio"])
         
-        # Statistical analysis of ambiguous directives
-        ambiguous_terms = ["what should i do", "what do i do", "ambiguous"]
-        ambiguous_density = sum(1 for term in ambiguous_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        if ambiguous_density > 0:
-            risk = max(risk, min(0.6, ambiguous_density * 30.0))
-        
+        risk = max(temporal_risk, structural_risk, underspec_score * 0.7, ambiguity_score * 0.7)
         return min(1.0, risk)
         
     def evaluate(
@@ -139,7 +133,7 @@ class ControlProbeType1:
         prompt_risk = self._estimate_prompt_risk(context)
         sigma = min(sigma_raw, 1.0 - prompt_risk) if prompt_risk > 0 else sigma_raw
         
-        # Decision: PASS if σ(z) ≥ τ, else BLOCK
+        # Decision: PASS if -(z) - -, else BLOCK
         decision = CommitmentDecision.PASS if sigma >= self.tau else CommitmentDecision.BLOCK
         
         debug_info = {
@@ -155,9 +149,9 @@ class ControlProbeType1:
         }
         
         if decision == CommitmentDecision.BLOCK:
-            print(f"[CP Type-1] BLOCKED: σ={sigma:.3f} < τ={self.tau:.3f}")
+            print(f"[CP Type-1] BLOCKED: -={sigma:.3f} < -={self.tau:.3f}")
         else:
-            print(f"[CP Type-1] PASSED: σ={sigma:.3f} ≥ τ={self.tau:.3f}")
+            print(f"[CP Type-1] PASSED: -={sigma:.3f} - -={self.tau:.3f}")
         
         return decision, sigma, debug_info
     
@@ -193,16 +187,16 @@ class ControlProbeType1:
         if issues:
             response_parts.append("Specific concerns:")
             for issue in issues:
-                response_parts.append(f"• {issue}")
+                response_parts.append(f"- {issue}")
             response_parts.append("")
         
         # Provide helpful alternative
         response_parts.extend([
             "How I can help:",
-            "• Provide more context or background information",
-            "• Rephrase the question with more specific details",
-            "• Break down the question into smaller, more concrete parts",
-            "• Clarify what you're looking to understand or accomplish"
+            "- Provide more context or background information",
+            "- Rephrase the question with more specific details",
+            "- Break down the question into smaller, more concrete parts",
+            "- Clarify what you're looking to understand or accomplish"
         ])
         
         return "\n".join(response_parts)
@@ -221,7 +215,7 @@ class ControlProbeType2:
         self.max_history = config.max_history_turns
         self.history: List[InteractionTurn] = []
         self.awaiting_new_topic = False
-        self.last_topic_tokens = set()
+        self.last_topic_prompt = ""
         self.pending_decision: Optional[CommitmentDecision] = None
         
     def add_turn(self, prompt: str, response: str, risk_score: float):
@@ -246,7 +240,7 @@ class ControlProbeType2:
             self.history.pop(0)
     
     def compute_cumulative_risk(self) -> float:
-        """Compute R_cum(H) = Σ R(z_i)"""
+        """Compute R_cum(H) = - R(z_i)"""
         return sum(turn.risk_score for turn in self.history)
     
     def detect_semantic_drift(self) -> Tuple[bool, float]:
@@ -258,21 +252,29 @@ class ControlProbeType2:
         if len(self.history) < 3:
             return False, 0.0
         
-        # Check for stance reversals
-        # Simplified: look for negation patterns between turns
-        reversals = 0
-        for i in range(1, len(self.history)):
-            prev_response = self.history[i-1].response.lower()
-            curr_response = self.history[i].response.lower()
-            
-            # Check for opposite positions
-            if ('yes' in prev_response and 'no' in curr_response) or \
-               ('no' in prev_response and 'yes' in curr_response) or \
-               ('correct' in prev_response and 'incorrect' in curr_response):
-                reversals += 1
+        from semantic_signal_framework import unified_semantic_estimator
         
-        drift_score = reversals / len(self.history)
-        return drift_score > 0.3, drift_score
+        similarity_engine = unified_semantic_estimator.similarity_engine
+        drift_events = 0
+        
+        for i in range(1, len(self.history)):
+            prev_turn = self.history[i-1]
+            curr_turn = self.history[i]
+            
+            # Same topic if prompts are semantically similar
+            prompt_similarity = similarity_engine.compute_semantic_similarity(
+                prev_turn.prompt, curr_turn.prompt
+            )
+            response_similarity = similarity_engine.compute_semantic_similarity(
+                prev_turn.response, curr_turn.response
+            )
+            
+            # Drift if prompt is same topic but response semantics shift
+            if prompt_similarity >= 0.5 and response_similarity <= 0.35:
+                drift_events += 1
+        
+        drift_score = drift_events / len(self.history)
+        return drift_score > 0.25, drift_score
     
     def detect_sycophancy(self) -> Tuple[bool, float]:
         """Detect if positions align with user pressure
@@ -283,17 +285,14 @@ class ControlProbeType2:
         if len(self.history) < 3:
             return False, 0.0
         
-        # Check if system progressively weakens stance in response to user disagreement
-        disagreement_markers = ['but', 'however', 'disagree', 'wrong', 'incorrect', 
-                               'not true', "don't think"]
+        from semantic_signal_framework import unified_semantic_estimator
         
         weakening_pattern = 0
         for i in range(1, len(self.history)):
-            user_disagreed = any(marker in self.history[i].prompt.lower() 
-                                for marker in disagreement_markers)
+            user_prompt = self.history[i].prompt
+            disagreement_score = unified_semantic_estimator.estimate_explicit_disagreement_signal(user_prompt)
             
-            if user_disagreed:
-                # Check if system weakened stance
+            if disagreement_score >= 0.35:
                 prev_certainty = self._estimate_certainty(self.history[i-1].response)
                 curr_certainty = self._estimate_certainty(self.history[i].response)
                 
@@ -305,13 +304,9 @@ class ControlProbeType2:
     
     def _estimate_certainty(self, response: str) -> float:
         """Estimate certainty level of response"""
-        certainty_markers = ['definitely', 'certainly', 'clearly', 'obviously', 'always']
-        uncertainty_markers = ['might', 'could', 'possibly', 'perhaps', 'maybe']
+        from signal_estimation import signal_estimator
         
-        cert_count = sum(1 for marker in certainty_markers if marker in response.lower())
-        uncert_count = sum(1 for marker in uncertainty_markers if marker in response.lower())
-        
-        return 0.5 + (cert_count * 0.1) - (uncert_count * 0.1)
+        return signal_estimator.estimate_epistemic_certainty(response)
     
     def evaluate(self) -> Tuple[CommitmentDecision, Dict]:
         """Evaluate if interaction should halt or reset
@@ -342,7 +337,7 @@ class ControlProbeType2:
         
         # Decision logic
         if R_cum >= self.Theta:
-            print(f"[CP Type-2] HALT: R_cum={R_cum:.3f} ≥ Θ={self.Theta:.3f}")
+            print(f"[CP Type-2] HALT: R_cum={R_cum:.3f} - -={self.Theta:.3f}")
             self._activate_topic_gate(self.history[-1].prompt, CommitmentDecision.HALT)
             return CommitmentDecision.HALT, debug_info
         
@@ -375,26 +370,17 @@ class ControlProbeType2:
     def _activate_topic_gate(self, prompt: str, decision: CommitmentDecision):
         self.awaiting_new_topic = True
         self.pending_decision = decision
-        self.last_topic_tokens = self._tokenize_prompt(prompt)
+        self.last_topic_prompt = prompt or ""
 
     def _is_new_topic(self, prompt: str) -> bool:
-        current_tokens = self._tokenize_prompt(prompt)
-        if not current_tokens or not self.last_topic_tokens:
+        if not self.last_topic_prompt:
             return True
 
-        overlap = len(current_tokens & self.last_topic_tokens)
-        union = len(current_tokens | self.last_topic_tokens)
-        similarity = overlap / union if union else 0.0
+        from semantic_signal_framework import unified_semantic_estimator
+        similarity = unified_semantic_estimator.similarity_engine.compute_semantic_similarity(
+            prompt, self.last_topic_prompt
+        )
         return similarity < 0.5
-
-    def _tokenize_prompt(self, prompt: str) -> set:
-        tokens = re.findall(r"[a-zA-Z]{4,}", prompt.lower())
-        stopwords = {
-            "this", "that", "with", "from", "your", "have", "what", "would",
-            "should", "could", "about", "please", "think", "being", "their",
-            "there", "which", "where", "when", "while", "these", "those"
-        }
-        return {t for t in tokens if t not in stopwords}
     
     def generate_halt_response(self, reason: Dict) -> str:
         """Generate response when halting interaction
@@ -406,7 +392,7 @@ class ControlProbeType2:
             Explanation of halt
         """
         response_parts = [
-            "⚠ I need to pause our conversation.",
+            "- I need to pause our conversation.",
             ""
         ]
 
@@ -414,7 +400,7 @@ class ControlProbeType2:
         if 'R_cum' in reason and 'Theta' in reason and reason['R_cum'] >= reason['Theta']:
             response_parts.extend([
                 f"The cumulative commitment risk across our conversation has exceeded safe thresholds "
-                f"(R_cum={reason['R_cum']:.2f} ≥ Θ={reason['Theta']:.2f}).",
+                f"(R_cum={reason['R_cum']:.2f} - -={reason['Theta']:.2f}).",
                 ""
             ])
         
@@ -434,9 +420,9 @@ class ControlProbeType2:
         
         response_parts.extend([
             "To maintain reliability, I should:",
-            "• Reset to evidence-based positions",
-            "• Clarify what I can and cannot confidently claim",
-            "• Acknowledge areas of uncertainty honestly"
+            "- Reset to evidence-based positions",
+            "- Clarify what I can and cannot confidently claim",
+            "- Acknowledge areas of uncertainty honestly"
         ])
         
         return "\n".join(response_parts)
@@ -444,7 +430,7 @@ class ControlProbeType2:
     def generate_reset_response(self, decision: CommitmentDecision) -> str:
         """Generate response when repeating the same line of thought."""
         response_parts = [
-            "⚠️ There is no point in continuing this line of thought.",
+            "-- There is no point in continuing this line of thought.",
             "Please start a new line of inquiry or provide a different angle.",
             "",
             "I will not continue the current thread until you change topics."

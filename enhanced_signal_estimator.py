@@ -66,44 +66,13 @@ class EnhancedSignalEstimator(TrueSignalEstimator):
             return self._fallback_structural_signals(prompt)
     
     def _fallback_structural_signals(self, prompt: str) -> Dict[str, float]:
-        """Fallback structural signal estimation using basic heuristics"""
+        """Fallback structural signal estimation using statistical semantics"""
         if not prompt or len(prompt.strip()) < 3:
             return {signal_type: 0.0 for signal_type in 
                    ['jurisdictional', 'policy', 'binary', 'personal_data', 'consequence', 'temporal']}
         
-        prompt_lower = prompt.lower()
-        signals = {}
-        
-        # Basic heuristic approach
-        # Jurisdictional risk (permission-seeking language)
-        permission_terms = ['can i', 'may i', 'am i allowed', 'is it legal', 'is it illegal', 'is it okay to']
-        permission_density = sum(1 for term in permission_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["jurisdictional"] = min(0.7, permission_density * 20.0)
-        
-        # Policy risk (policy-related language)
-        policy_terms = ['policy', 'rules', 'regulation', 'terms', 'guidelines']
-        policy_density = sum(1 for term in policy_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["policy"] = min(0.6, policy_density * 15.0)
-        
-        # Binary framing risk
-        binary_terms = ['can i', 'may i', 'am i allowed', 'is it okay to']
-        binary_density = sum(1 for term in binary_terms if prompt_lower.startswith(term)) / max(1, 1)
-        signals["binary"] = min(0.7, binary_density * 0.7)
-        
-        # Personal data risk
-        personal_terms = ['i have', 'i feel', "i'm experiencing", 'my ']
-        personal_density = sum(1 for term in personal_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["personal_data"] = min(0.7, personal_density * 25.0)
-        
-        # Temporal risk (use signal estimation)
-        signals["temporal"] = self.estimate_temporal_risk("", prompt)
-        
-        # Consequence risk
-        consequence_terms = ['risk', 'danger', 'safety', 'safe', 'unsafe', 'harm']
-        consequence_density = sum(1 for term in consequence_terms if term in prompt_lower) / max(len(prompt_lower.split()), 1)
-        signals["consequence"] = min(0.6, consequence_density * 20.0)
-        
-        return signals
+        from intent_classifier import intent_classifier
+        return intent_classifier.analyze_prompt(prompt)
     
     def get_detailed_analysis(self, prompt: str) -> Dict:
         """Get detailed analysis breakdown for debugging and validation"""

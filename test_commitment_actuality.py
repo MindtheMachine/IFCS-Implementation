@@ -169,11 +169,11 @@ class TestCommitmentActualityClassifier:
             ("Generally speaking, you must implement proper authentication.", "")
         ]
         
-        # Test investment advice, medical advice, and technical recommendations
+        # Test investment advice, professional advice, and technical recommendations
         specialized_advice_examples = [
             ("You should invest in index funds for long-term growth.", ""),
             ("I recommend diversifying your portfolio across different asset classes.", ""),
-            ("You must consult a doctor before starting any new medication.", ""),
+            ("You must consult a professional before starting any new medication.", ""),
             ("The best treatment approach is to combine therapy with medication.", ""),
             ("You should implement OAuth 2.0 for secure API authentication.", ""),
             ("I recommend using Docker containers for consistent deployments.", ""),
