@@ -1,3 +1,4 @@
+“The author’s contributions were made during employment. Intellectual property rights may be subject to employer ownership. The open-source license is provided to the extent permitted.”
 # IFCS Enhanced Signal Strength Implementation
 
 Complete implementation of the IFCS system with **enhanced signal strength estimation** using fuzzy logic and semantic analysis. This system replaces all heuristic-based signal estimation with advanced semantic similarity and fuzzy logic estimators across the entire pipeline.
