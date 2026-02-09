@@ -30,13 +30,27 @@ tqdm>=4.66.0
 pandas>=2.0.0
 
 # ============================================================================
+# ECR Experiment Dependencies (REQUIRED for empirical validation)
+# ============================================================================
+# These are needed to run the ECR comparison experiments
+
+# Statistical analysis (t-tests, ANOVA, etc.)
+scipy>=1.11.0
+
+# Machine learning utilities (clustering, metrics)
+scikit-learn>=1.3.0
+
+# Semantic similarity for self-consistency baseline
+sentence-transformers>=2.2.0
+
+# ============================================================================
 # Alternative LLM Providers (OPTIONAL - Install only if needed)
 # ============================================================================
 # Uncomment the provider you want to use:
 
 # OpenAI API (for GPT-4, GPT-3.5-turbo, etc.)
-# Uncomment if using: LLM_PROVIDER=openai
-# openai>=1.0.0
+# Enabled for ECR experiments
+openai>=1.0.0
 
 # HuggingFace Inference API (for Llama, Mistral, etc.)
 # Uncomment if using: LLM_PROVIDER=huggingface

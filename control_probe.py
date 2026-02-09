@@ -441,3 +441,7 @@ class ControlProbeType2:
         """Reset interaction history"""
         print(f"[CP Type-2] Resetting interaction history ({len(self.history)} turns cleared)")
         self.history.clear()
+        # Also clear topic-gate state so new sessions are not spuriously blocked.
+        self.awaiting_new_topic = False
+        self.pending_decision = None
+        self.last_topic_prompt = ""

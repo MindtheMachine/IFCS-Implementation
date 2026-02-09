@@ -1,0 +1,11 @@
+# Minimal dependencies for running TruthfulQA/ASQA benchmarks (no torch)
+
+numpy>=1.24.0
+pandas>=2.0.0
+tqdm>=4.66.0
+
+datasets>=2.14.0
+rouge-score>=0.1.2
+
+# Local LLM provider (Ollama)
+ollama>=0.1.0

@@ -19,6 +19,8 @@ echo 6. Setup API Key (.env configuration)
 echo 7. Exit
 echo.
 
+REM Note: .env is loaded by the Python app at runtime (LLM_PROVIDER/LLM_MODEL)
+
 choice /C 1234567 /N /M "Enter your choice (1-7): "
 set CHOICE=%ERRORLEVEL%
 

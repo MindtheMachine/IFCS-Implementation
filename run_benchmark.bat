@@ -1,59 +1,52 @@
 @echo off
+setlocal EnableExtensions
 REM Trilogy System - Benchmark Evaluation Launcher
-REM Runs TruthfulQA or ASQA benchmark evaluation
+REM Runs TruthfulQA or ASQA benchmark evaluation in an isolated venv to avoid torch issues
+
+set "VENV_DIR=.venv_bench"
+set "REQ_FILE=requirements-benchmark.txt"
 
 echo ============================================================
 echo Trilogy System - Benchmark Evaluation Launcher
 echo ============================================================
 echo.
 
-REM Step 1: Install/Update Dependencies
-echo [1/3] Installing dependencies from requirements.txt...
-echo.
-python -m pip install -r requirements.txt --quiet
-if errorlevel 1 (
-    echo ERROR: Failed to install dependencies
-    echo Please run: python -m pip install -r requirements.txt
-    pause
-    exit /b 1
-)
-echo Dependencies installed successfully!
-echo.
-
-REM Step 2: Check for API key
-echo [2/3] Checking API key configuration...
-echo.
-
-if exist .env (
-    echo Found .env file
-    for /f "tokens=1,2 delims==" %%a in (.env) do (
-        if "%%a"=="ANTHROPIC_API_KEY" (
-            if "%%b"=="your-api-key-here" (
-                echo WARNING: .env file contains placeholder API key
-                echo Please edit .env and add your actual Anthropic API key
-                pause
-                exit /b 1
-            )
-            echo API key configured in .env file
-        )
-    )
-) else (
-    if not defined ANTHROPIC_API_KEY (
-        echo WARNING: No API key found!
-        echo.
-        echo Please either:
-        echo   1. Create .env file with ANTHROPIC_API_KEY=your-key-here
-        echo   2. Set environment variable ANTHROPIC_API_KEY
-        echo.
+REM Step 1: Ensure virtual environment exists
+if not exist "%VENV_DIR%\Scripts\python.exe" (
+    echo [1/3] Creating isolated Python environment at %VENV_DIR% ...
+    python -m venv "%VENV_DIR%"
+    if errorlevel 1 (
+        echo ERROR: Failed to create virtual environment
         pause
         exit /b 1
     )
-    echo API key found in environment variable
+) else (
+    echo [1/3] Using existing virtual environment at %VENV_DIR%
 )
-echo.
+set "PY_EXE=%VENV_DIR%\Scripts\python.exe"
 
-REM Step 3: Prompt for benchmark selection
+REM Step 2: Install/Update minimal benchmark dependencies (skip with SKIP_PIP_INSTALL=1)
+if defined SKIP_PIP_INSTALL (
+    echo [2/3] Skipping dependency installation (SKIP_PIP_INSTALL=1)
+) else (
+    if not exist "%REQ_FILE%" (
+        echo ERROR: %REQ_FILE% not found. Please ensure it exists.
+        pause
+        exit /b 1
+    )
+    echo [2/3] Installing dependencies from %REQ_FILE% into %VENV_DIR% ...
+    "%PY_EXE%" -m pip install --upgrade pip --quiet
+    "%PY_EXE%" -m pip install -r "%REQ_FILE%" --quiet
+    if errorlevel 1 (
+        echo ERROR: Failed to install dependencies
+        pause
+        exit /b 1
+    )
+)
+
+echo.
 echo [3/3] Select benchmark to run:
+echo   (Note: .env will be loaded by the app. Set LLM_PROVIDER/LLM_MODEL there.)
 echo.
 echo 1. TruthfulQA (Test - 5 examples)
 echo 2. TruthfulQA (Small - 50 examples)
@@ -76,14 +69,14 @@ echo.
 if "%CHOICE%"=="1" (
     echo Running: TruthfulQA Test - 5 examples
     echo.
-    python trilogy_app.py --benchmark truthfulqa --batch-size 5
+    "%PY_EXE%" trilogy_app.py --benchmark truthfulqa --batch-size 5
 )
 
 if "%CHOICE%"=="2" (
     echo Running: TruthfulQA Small - 50 examples
     echo This will take approximately 8-10 minutes
     echo.
-    python trilogy_app.py --benchmark truthfulqa --batch-size 50
+    "%PY_EXE%" trilogy_app.py --benchmark truthfulqa --batch-size 50
 )
 
 if "%CHOICE%"=="3" (
@@ -92,27 +85,27 @@ if "%CHOICE%"=="3" (
     echo.
     choice /C YN /M "Are you sure you want to continue"
     if errorlevel 2 goto :end
-    python trilogy_app.py --benchmark truthfulqa
+    "%PY_EXE%" trilogy_app.py --benchmark truthfulqa
 )
 
 if "%CHOICE%"=="4" (
     echo Running: ASQA Test - 5 examples
     echo.
-    python trilogy_app.py --benchmark asqa --batch-size 5
+    "%PY_EXE%" trilogy_app.py --benchmark asqa --batch-size 5
 )
 
 if "%CHOICE%"=="5" (
     echo Running: ASQA Small - 50 examples
     echo This will take approximately 8-10 minutes
     echo.
-    python trilogy_app.py --benchmark asqa --batch-size 50
+    "%PY_EXE%" trilogy_app.py --benchmark asqa --batch-size 50
 )
 
 if "%CHOICE%"=="6" (
     echo Running: ASQA Medium - 100 examples
     echo This will take approximately 15-20 minutes
     echo.
-    python trilogy_app.py --benchmark asqa --batch-size 100
+    "%PY_EXE%" trilogy_app.py --benchmark asqa --batch-size 100
 )
 
 if "%CHOICE%"=="7" (
@@ -124,11 +117,9 @@ if "%CHOICE%"=="7" (
     echo   --batch-start N          Starting index (for resuming)
     echo   --rate-limit N.N         Delay between API calls (seconds)
     echo.
-    echo Example: --benchmark truthfulqa --batch-size 100 --rate-limit 2.0
-    echo.
     set /p CUSTOM_CMD="Enter your command (or press Enter to cancel): "
     if not "%CUSTOM_CMD%"=="" (
-        python trilogy_app.py %CUSTOM_CMD%
+        "%PY_EXE%" trilogy_app.py %CUSTOM_CMD%
     )
 )
 

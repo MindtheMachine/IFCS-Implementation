@@ -8,19 +8,31 @@ import time
 from typing import Dict, Tuple, List, Optional
 
 from trilogy_config import TrilogyConfig
-from trilogy_orchestrator import TrilogyOrchestrator, BaselineAgent, ComparisonEngine
+from trilogy_orchestrator import (
+    TrilogyOrchestrator,
+    BaselineAgent,
+    ComparisonEngine,
+)
 from llm_provider import LLMProviderFactory
 
 # Benchmark evaluation imports (optional)
 try:
     from benchmark_loader import BenchmarkLoader
     from benchmark_adapters import TruthfulQAAdapter, ASQAAdapter
-    from benchmark_metrics import TruthfulQAMetrics, ASQAMetrics, BenchmarkMetricsAggregator
+    from benchmark_metrics import (
+        TruthfulQAMetrics,
+        ASQAMetrics,
+        BenchmarkMetricsAggregator,
+    )
     from benchmark_orchestrator import BenchmarkOrchestrator
     from benchmark_reports import BenchmarkReportGenerator
-    from benchmark_config import BenchmarkConfig, DEFAULT_TRUTHFULQA_CONFIG, DEFAULT_ASQA_CONFIG
+    from benchmark_config import (
+        BenchmarkConfig,
+        DEFAULT_TRUTHFULQA_CONFIG,
+        DEFAULT_ASQA_CONFIG,
+    )
     _BENCHMARKS_AVAILABLE = True
-except Exception:
+except ImportError:
     BenchmarkLoader = None
     TruthfulQAAdapter = None
     ASQAAdapter = None
@@ -45,6 +57,9 @@ class TrilogyApp:
             api_key: LLM API key (or uses environment variable)
             config: TrilogyConfig instance (or uses defaults)
         """
+        # Ensure .env is loaded before reading any env-dependent config
+        LLMProviderFactory._reload_env()
+
         # Initialize config
         if config is None:
             config = TrilogyConfig(api_key=api_key)
@@ -55,18 +70,23 @@ class TrilogyApp:
         self.llm_provider = LLMProviderFactory.create_from_env()
 
         # Initialize agents
-        self.trilogy = TrilogyOrchestrator(config, self.call_llm, self.llm_provider)
+        self.trilogy = TrilogyOrchestrator(
+            config, self.call_llm, self.llm_provider
+        )
         self.baseline = BaselineAgent(self.call_llm)
 
         provider_name = os.getenv("LLM_PROVIDER", "anthropic")
-        print(f"[App] Initialized with provider: {provider_name}, model: {config.model}")
+        print(
+            f"[App] Initialized with provider: {provider_name}, "
+            f"model: {config.model}"
+        )
     
     def call_llm(
         self,
         prompt: str,
         temperature: Optional[float] = None,
         max_tokens: int = None,
-        top_p: Optional[float] = None
+        top_p: Optional[float] = None,
     ) -> str:
         """Call LLM API (works with any configured provider)
 
@@ -92,16 +112,16 @@ class TrilogyApp:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 top_p=top_p,
-                seed=self.config.seed
+                seed=self.config.seed,
             )
-
             return response
-
-        except Exception as e:
+        except (RuntimeError, TimeoutError, OSError, ValueError) as e:
             print(f"[Error] API call failed: {e}")
             return f"Error calling LLM: {str(e)}"
     
-    def process_single(self, prompt: str, context: str = "") -> Tuple[str, str, Dict]:
+    def process_single(self, prompt: str, context: str = "") -> Tuple[
+        str, str, Dict
+    ]:
         """Process single prompt through both baseline and trilogy
         
         Args:
@@ -137,7 +157,7 @@ class TrilogyApp:
         comparison = ComparisonEngine.compare(
             prompt,
             baseline_response,
-            regulated_result
+            regulated_result,
         )
         
         comparison['baseline_time_s'] = baseline_time
@@ -147,11 +167,11 @@ class TrilogyApp:
         return baseline_response, regulated_result.final_response, comparison
     
     def save_outputs(
-        self, 
+        self,
         prompt: str,
-        baseline_response: str, 
-        regulated_response: str, 
-        comparison: Dict
+        baseline_response: str,
+        regulated_response: str,
+        comparison: Dict,
     ):
         """Save outputs to files
         
@@ -162,7 +182,8 @@ class TrilogyApp:
             comparison: Comparison analysis
         """
         # Save baseline
-        with open(self.config.baseline_output_path, 'w', encoding='utf-8') as f:
+        baseline_path = self.config.baseline_output_path
+        with open(baseline_path, 'w', encoding='utf-8') as f:
             f.write("="*80 + "\n")
             f.write("BASELINE OUTPUT (Unregulated LLM)\n")
             f.write("="*80 + "\n\n")
@@ -170,10 +191,13 @@ class TrilogyApp:
             f.write("-"*80 + "\n\n")
             f.write(f"RESPONSE:\n{baseline_response}\n")
         
-        print(f"[App] Saved baseline output to: {self.config.baseline_output_path}")
+        print(
+            f"[App] Saved baseline output to: {self.config.baseline_output_path}"
+        )
         
         # Save regulated
-        with open(self.config.regulated_output_path, 'w', encoding='utf-8') as f:
+        regulated_path = self.config.regulated_output_path
+        with open(regulated_path, 'w', encoding='utf-8') as f:
             f.write("="*80 + "\n")
             f.write("REGULATED OUTPUT (ECR-Control Probe-IFCS)\n")
             f.write("="*80 + "\n\n")
@@ -181,7 +205,9 @@ class TrilogyApp:
             f.write("-"*80 + "\n\n")
             f.write(f"RESPONSE:\n{regulated_response}\n")
         
-        print(f"[App] Saved regulated output to: {self.config.regulated_output_path}")
+        print(
+            f"[App] Saved regulated output to: {self.config.regulated_output_path}"
+        )
         
         # Save comparison
         with open(self.config.comparison_output_path, 'w', encoding='utf-8') as f:
@@ -191,7 +217,7 @@ class TrilogyApp:
                 baseline_response,
                 regulated_response,
                 comparison,
-                width=60
+                width=60,
             )
             f.write(side_by_side)
             f.write("\n\n")
@@ -370,7 +396,7 @@ class TrilogyApp:
     def process_benchmark(
         self,
         benchmark_name: str,
-        config: BenchmarkConfig = None
+        config: BenchmarkConfig = None,
     ) -> Tuple[List, Dict]:
         """Process benchmark evaluation
 
@@ -417,22 +443,24 @@ class TrilogyApp:
         # 2. Apply batch configuration
         if config.batch_size > 0:
             examples = examples[config.batch_start_idx:config.batch_start_idx + config.batch_size]
-            print(f"[Info] Processing subset: {len(examples)} examples "
-                  f"(indices {config.batch_start_idx} to {config.batch_start_idx + len(examples)})")
+            print(
+                f"[Info] Processing subset: {len(examples)} examples "
+                f"(indices {config.batch_start_idx} to {config.batch_start_idx + len(examples)})"
+            )
         else:
             print(f"[Info] Processing full dataset: {len(examples)} examples")
 
         # 3. Run evaluation
-        print(f"\n[2/5] Running batch evaluation...")
+        print("\n[2/5] Running batch evaluation...")
         orchestrator = BenchmarkOrchestrator(self, adapter, metrics_computer, config)
         results = orchestrator.evaluate_batch(examples)
 
         # 4. Aggregate statistics
-        print(f"\n[3/5] Aggregating statistics...")
+        print("\n[3/5] Aggregating statistics...")
         aggregated = BenchmarkMetricsAggregator.aggregate_scores(results)
 
         # 5. Generate reports
-        print(f"\n[4/5] Generating reports...")
+        print("\n[4/5] Generating reports...")
         BenchmarkReportGenerator.generate_csv_report(results, config.results_csv_path)
         BenchmarkReportGenerator.generate_summary_json(results, aggregated, config.summary_json_path, config)
 
@@ -444,11 +472,11 @@ class TrilogyApp:
                 BenchmarkReportGenerator.generate_html_visualization(
                     results, aggregated, config.html_report_path
                 )
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 print(f"[Warning] Could not generate HTML report: {e}")
 
         # 6. Print summary
-        print(f"\n[5/5] Evaluation complete!")
+        print("\n[5/5] Evaluation complete!")
         print("\n" + "="*80)
         print("SUMMARY")
         print("="*80)
@@ -465,14 +493,25 @@ class TrilogyApp:
             improvements = aggregated.get('improvements', {})
 
             for metric in baseline_stats.keys():
-                baseline_val = baseline_stats[metric].get('mean', 0) if isinstance(baseline_stats[metric], dict) else baseline_stats[metric]
-                regulated_val = regulated_stats[metric].get('mean', 0) if isinstance(regulated_stats[metric], dict) else regulated_stats[metric]
+                baseline_val = (
+                    baseline_stats[metric].get('mean', 0)
+                    if isinstance(baseline_stats[metric], dict)
+                    else baseline_stats[metric]
+                )
+                regulated_val = (
+                    regulated_stats[metric].get('mean', 0)
+                    if isinstance(regulated_stats[metric], dict)
+                    else regulated_stats[metric]
+                )
                 improvement = improvements.get(metric, 0)
 
                 sign = "+" if improvement >= 0 else ""
-                print(f"  {metric}: {baseline_val:.4f} - {regulated_val:.4f} ({sign}{improvement:.4f})")
+                print(
+                    f"  {metric}: {baseline_val:.4f} - {regulated_val:.4f} ("
+                    f"{sign}{improvement:.4f})"
+                )
 
-        print(f"\nResults saved to:")
+        print("\nResults saved to:")
         print(f"  CSV: {config.results_csv_path}")
         print(f"  JSON: {config.summary_json_path}")
         if config.comparison_path:
@@ -486,11 +525,16 @@ class TrilogyApp:
 def main():
     """Main entry point for command-line usage"""
     import argparse
+    import json
     
-    parser = argparse.ArgumentParser(description='ECR-Control Probe-IFCS Trilogy System')
+    parser = argparse.ArgumentParser(
+        description='ECR-Control Probe-IFCS Trilogy System'
+    )
     parser.add_argument('--prompt', type=str, help='Single prompt to process')
     parser.add_argument('--test-suite', action='store_true', help='Run full test suite')
-    parser.add_argument('--test-ids', type=str, help='Comma-separated test case IDs to run (e.g., 2.2,2.3)')
+    parser.add_argument(
+        '--test-ids', type=str, help='Comma-separated test case IDs to run (e.g., 2.2,2.3)'
+    )
     parser.add_argument('--api-key', type=str, help='LLM API key (or use LLM_API_KEY env var)')
 
     # Benchmark evaluation arguments
@@ -514,10 +558,10 @@ def main():
             benchmark_name=args.benchmark,
             batch_size=args.batch_size,
             batch_start_idx=args.batch_start,
-            rate_limit_delay_s=args.rate_limit
+            rate_limit_delay_s=args.rate_limit,
         )
 
-        results, stats = app.process_benchmark(args.benchmark, config)
+        results, _ = app.process_benchmark(args.benchmark, config)
 
         print("\n" + "="*80)
         print("BENCHMARK EVALUATION COMPLETE")
@@ -541,11 +585,10 @@ def main():
         results = app.run_test_suite(test_cases)
         
         # Save results
-        import json
-        with open('test_results.json', 'w') as f:
+        with open('test_results.json', 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=2, default=str)
         
-        print(f"\nResults saved to: test_results.json")
+        print("\nResults saved to: test_results.json")
     
     elif args.test_suite:
         # Run test suite
@@ -556,11 +599,10 @@ def main():
         results = app.run_test_suite(test_cases)
         
         # Save results
-        import json
-        with open('test_results.json', 'w') as f:
-            json.dumps(results, f, indent=2, default=str)
+        with open('test_results.json', 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, default=str)
         
-        print(f"\nResults saved to: test_results.json")
+        print("\nResults saved to: test_results.json")
     
     elif args.prompt:
         # Process single prompt
