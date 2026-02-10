@@ -6,13 +6,23 @@ Configuration classes for TruthfulQA and ASQA benchmark evaluation
 from dataclasses import dataclass
 from typing import Optional
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed, skip loading .env file
+    pass
+
 # Import default model from trilogy configuration
 try:
     from trilogy_config import TrilogyConfig
     DEFAULT_MODEL_NAME = TrilogyConfig().model
-except (ImportError, ValueError):
+except (ImportError, ValueError, Exception):
     # Fallback if import fails or API key not configured yet
-    DEFAULT_MODEL_NAME = "claude-sonnet-4-20250514"
+    # Try to get model from environment first
+    import os
+    DEFAULT_MODEL_NAME = os.getenv("LLM_MODEL", "claude-sonnet-4-20250514")
 
 
 @dataclass
@@ -48,6 +58,9 @@ class BenchmarkConfig:
     checkpoint_interval: int = 10  # Save every N examples
     # Auto-configured to Results/{model_name}/.checkpoints
     checkpoint_dir: Optional[str] = None
+
+    # Output options
+    include_full_text_in_csv: bool = False  # Include full text responses in CSV (makes files large)
 
     # Output paths (auto-configured to Results/{model_name}/ if None)
     results_csv_path: Optional[str] = None

@@ -75,7 +75,7 @@ class EnhancedAdmissibilitySignal:
         factuality = cls._compute_factuality_score(signals)
         
         intent_clarity = signals.intent
-        domain_alignment = signals.domain
+        domain_alignment = signals.risk_specificity  # Use risk_specificity as proxy for domain alignment
         
         return cls(
             confidence=confidence,
@@ -259,7 +259,7 @@ class EnhancedControlProbeType1:
         # Provide helpful alternatives based on semantic analysis of prompt
         prompt_signals = unified_semantic_estimator.estimate_semantic_signals(original_prompt)
         
-        if prompt_signals.domain > 0.5:
+        if prompt_signals.risk_specificity > 0.5:  # Use risk_specificity instead of domain
             response_parts.extend([
                 "For domain-specific questions like this:",
                 "• Consult authoritative sources in the relevant field",

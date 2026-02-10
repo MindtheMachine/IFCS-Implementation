@@ -18,6 +18,7 @@ show_menu() {
     echo "6. Setup API Key (.env configuration)"
     echo "7. Exit"
     echo ""
+    echo "Note: .env is loaded by the Python app at runtime (LLM_PROVIDER/LLM_MODEL)"
 }
 
 web_interface() {
@@ -110,7 +111,7 @@ install_dependencies() {
     echo "============================================================"
     echo ""
     echo "Installed packages:"
-    python -m pip list | grep -E "anthropic|gradio|numpy|datasets|rouge|tqdm|pandas"
+    python -m pip list | grep -E "anthropic|gradio|numpy|datasets|rouge|tqdm|pandas|python-dotenv|ollama|openai|huggingface"
     echo ""
     read -p "Press Enter to continue..."
 }
@@ -133,10 +134,15 @@ setup_api_key() {
     fi
 
     if [ ! -f .env.template ]; then
-        echo "ERROR: .env.template not found!"
-        echo "Please ensure .env.template exists in the current directory."
-        read -p "Press Enter to continue..."
-        return
+        echo "Creating .env.template..."
+        cat > .env.template << 'EOF'
+# Environment Variables for Trilogy System
+# Copy this file to .env and fill in your actual API key
+
+# Anthropic API Key (required)
+# Get your API key from: https://console.anthropic.com/
+ANTHROPIC_API_KEY=your-api-key-here
+EOF
     fi
 
     echo ""
@@ -144,35 +150,22 @@ setup_api_key() {
     cp .env.template .env
 
     echo ""
-    echo "Please edit .env file and uncomment ONE provider section:"
-    echo "  - For Anthropic Claude"
-    echo "  - For OpenAI GPT-4"
-    echo "  - For HuggingFace (FREE tier)"
-    echo "  - For Ollama (Local, FREE)"
+    echo "Please enter your Anthropic API key:"
+    echo "(Get it from: https://console.anthropic.com/)"
     echo ""
-    echo "Uncomment the 3 lines (LLM_PROVIDER, LLM_MODEL, LLM_API_KEY)"
-    echo ""
-    read -p "Open .env for editing now? (y/n): " edit_now
+    read -p "API Key: " API_KEY
 
-    if [[ "$edit_now" =~ ^[Yy]$ ]]; then
-        # Try different editors
-        if command -v nano &> /dev/null; then
-            nano .env
-        elif command -v vi &> /dev/null; then
-            vi .env
-        elif command -v vim &> /dev/null; then
-            vim .env
-        else
-            echo "No text editor found. Please edit .env manually:"
-            echo "  nano .env"
-            echo "  or"
-            echo "  vi .env"
-        fi
+    if [ -z "$API_KEY" ]; then
+        echo "No API key entered. Using placeholder."
+        echo "Please edit .env manually and add your API key."
     else
-        echo "Please edit .env manually and add your API key:"
-        echo "  nano .env"
-        echo "  or"
-        echo "  vi .env"
+        cat > .env << EOF
+# Environment Variables for Trilogy System
+# Anthropic API Key
+ANTHROPIC_API_KEY=$API_KEY
+EOF
+        echo ""
+        echo "API key saved to .env file!"
     fi
 
     echo ""

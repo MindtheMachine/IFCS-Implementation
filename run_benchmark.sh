@@ -1,69 +1,51 @@
 #!/bin/bash
 # Trilogy System - Benchmark Evaluation Launcher
-# Runs TruthfulQA or ASQA benchmark evaluation
+# Runs TruthfulQA or ASQA benchmark evaluation in an isolated venv to avoid torch issues
+
+VENV_DIR=".venv_bench"
+REQ_FILE="requirements-benchmark.txt"
 
 echo "============================================================"
 echo "Trilogy System - Benchmark Evaluation Launcher"
 echo "============================================================"
 echo ""
 
-# Step 1: Install/Update Dependencies
-echo "[1/3] Installing dependencies from requirements.txt..."
-echo ""
-python -m pip install -r requirements.txt --quiet
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to install dependencies"
-    echo "Please run: python -m pip install -r requirements.txt"
-    read -p "Press Enter to continue..."
-    exit 1
-fi
-echo "Dependencies installed successfully!"
-echo ""
-
-# Step 2: Check for API key
-echo "[2/3] Checking API key configuration..."
-echo ""
-
-if [ -f .env ]; then
-    echo "Found .env file"
-
-    # Check if any provider is configured
-    if grep -q "^LLM_PROVIDER=" .env && grep -q "^LLM_API_KEY=" .env; then
-        # Check for placeholder
-        if grep -q "your-.*-key-here" .env || grep -q "your-actual-key-here" .env; then
-            echo "WARNING: .env file contains placeholder API key"
-            echo "Please edit .env and add your actual API key"
-            read -p "Press Enter to continue..."
-            exit 1
-        fi
-        echo "API key configured in .env file"
-    else
-        echo "WARNING: .env file exists but LLM_PROVIDER or LLM_API_KEY not set"
-        echo "Please edit .env and uncomment ONE provider section"
+# Step 1: Ensure virtual environment exists
+if [ ! -f "$VENV_DIR/bin/python" ]; then
+    echo "[1/3] Creating isolated Python environment at $VENV_DIR ..."
+    python -m venv "$VENV_DIR"
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to create virtual environment"
         read -p "Press Enter to continue..."
         exit 1
     fi
 else
-    # Check for legacy ANTHROPIC_API_KEY environment variable
-    if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$LLM_API_KEY" ]; then
-        echo "WARNING: No API key found!"
-        echo ""
-        echo "Please either:"
-        echo "  1. Create .env file from .env.template"
-        echo "  2. Set environment variable LLM_API_KEY"
-        echo ""
-        echo "Run: cp .env.template .env"
-        echo "Then edit .env and uncomment ONE provider section"
-        echo ""
+    echo "[1/3] Using existing virtual environment at $VENV_DIR"
+fi
+PY_EXE="$VENV_DIR/bin/python"
+
+# Step 2: Install/Update minimal benchmark dependencies (skip with SKIP_PIP_INSTALL=1)
+if [ -n "$SKIP_PIP_INSTALL" ]; then
+    echo "[2/3] Skipping dependency installation (SKIP_PIP_INSTALL=1)"
+else
+    if [ ! -f "$REQ_FILE" ]; then
+        echo "ERROR: $REQ_FILE not found. Please ensure it exists."
         read -p "Press Enter to continue..."
         exit 1
     fi
-    echo "API key found in environment variable"
+    echo "[2/3] Installing dependencies from $REQ_FILE into $VENV_DIR ..."
+    "$PY_EXE" -m pip install --upgrade pip --quiet
+    "$PY_EXE" -m pip install -r "$REQ_FILE" --quiet
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to install dependencies"
+        read -p "Press Enter to continue..."
+        exit 1
+    fi
 fi
-echo ""
 
-# Step 3: Prompt for benchmark selection
+echo ""
 echo "[3/3] Select benchmark to run:"
+echo "  (Note: .env will be loaded by the app. Set LLM_PROVIDER/LLM_MODEL there.)"
 echo ""
 echo "1. TruthfulQA (Test - 5 examples)"
 echo "2. TruthfulQA (Small - 50 examples)"
@@ -86,13 +68,13 @@ case $CHOICE in
     1)
         echo "Running: TruthfulQA Test - 5 examples"
         echo ""
-        python trilogy_app.py --benchmark truthfulqa --batch-size 5
+        "$PY_EXE" trilogy_app.py --benchmark truthfulqa --batch-size 5
         ;;
     2)
         echo "Running: TruthfulQA Small - 50 examples"
         echo "This will take approximately 8-10 minutes"
         echo ""
-        python trilogy_app.py --benchmark truthfulqa --batch-size 50
+        "$PY_EXE" trilogy_app.py --benchmark truthfulqa --batch-size 50
         ;;
     3)
         echo "Running: TruthfulQA Full - 817 examples"
@@ -103,24 +85,24 @@ case $CHOICE in
             echo "Cancelled."
             exit 0
         fi
-        python trilogy_app.py --benchmark truthfulqa
+        "$PY_EXE" trilogy_app.py --benchmark truthfulqa
         ;;
     4)
         echo "Running: ASQA Test - 5 examples"
         echo ""
-        python trilogy_app.py --benchmark asqa --batch-size 5
+        "$PY_EXE" trilogy_app.py --benchmark asqa --batch-size 5
         ;;
     5)
         echo "Running: ASQA Small - 50 examples"
         echo "This will take approximately 8-10 minutes"
         echo ""
-        python trilogy_app.py --benchmark asqa --batch-size 50
+        "$PY_EXE" trilogy_app.py --benchmark asqa --batch-size 50
         ;;
     6)
         echo "Running: ASQA Medium - 100 examples"
         echo "This will take approximately 15-20 minutes"
         echo ""
-        python trilogy_app.py --benchmark asqa --batch-size 100
+        "$PY_EXE" trilogy_app.py --benchmark asqa --batch-size 100
         ;;
     7)
         echo "Custom command mode"
@@ -130,12 +112,11 @@ case $CHOICE in
         echo "  --batch-size N           Number of examples to evaluate"
         echo "  --batch-start N          Starting index (for resuming)"
         echo "  --rate-limit N.N         Delay between API calls (seconds)"
-        echo ""
-        echo "Example: --benchmark truthfulqa --batch-size 100 --rate-limit 2.0"
+        echo "  --include-full-text      Include full text responses in CSV"
         echo ""
         read -p "Enter your command (or press Enter to cancel): " CUSTOM_CMD
         if [ ! -z "$CUSTOM_CMD" ]; then
-            python trilogy_app.py $CUSTOM_CMD
+            "$PY_EXE" trilogy_app.py $CUSTOM_CMD
         fi
         ;;
     *)
@@ -149,7 +130,7 @@ echo "============================================================"
 echo "Benchmark evaluation complete!"
 echo "============================================================"
 echo ""
-echo "Results saved in Results/[model-name]/ directory:"
+echo "Results saved in current directory:"
 echo "  - *_results.csv        : Per-example results"
 echo "  - *_summary.json       : Aggregated statistics"
 echo "  - *_comparison.txt     : Baseline vs regulated comparison"

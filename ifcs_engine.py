@@ -992,7 +992,13 @@ class IFCSEngine:
         return f"{leading_ws}{prefix}{stripped}"
     
     def _rule5_add_conditionals(self, text: str) -> str:
-        """Rule 5: Add conditional framing using signal-guided analysis"""
+        """Rule 5: Add conditional framing using linguistic analysis
+        
+        Uses a hybrid approach:
+        1. Detect existing hedges/qualifiers (avoid double-hedging)
+        2. Parse sentence structure to identify transformation opportunities
+        3. Apply transformations based on linguistic patterns, not just string matching
+        """
         # Use signal estimation to determine if conditionals are needed
         from signal_estimation import signal_estimator
         
@@ -1001,18 +1007,316 @@ class IFCSEngine:
         # Only add conditionals if evidential risk is high
         if evidential_risk < 0.6:
             return text
-
-        prefix = "In typical scenarios, "
-        suffix = " Details can vary by context."
-        stripped = text.lstrip()
-        if not stripped.lower().startswith(prefix.lower()):
-            leading_ws = text[: len(text) - len(stripped)]
-            text = f"{leading_ws}{prefix}{stripped}"
-
-        if "details can vary by context" not in text.lower():
-            text = f"{text.rstrip()}{suffix}"
-
-        return text
+        
+        # Check for existing hedges or temporal qualifiers - if already hedged, don't modify
+        if self._has_existing_qualifiers(text):
+            return text  # Already hedged, don't modify
+        
+        # Split into sentences
+        sentences = [s.strip() for s in re.split(r'([.!?]+)', text) if s.strip()]
+        if not sentences:
+            return text
+        
+        # Transform the first sentence using linguistic analysis
+        first_sentence = sentences[0]
+        transformed_first = self._transform_sentence_linguistically(first_sentence)
+        
+        # Replace first sentence with transformed version
+        if transformed_first != first_sentence:
+            sentences[0] = transformed_first
+        
+        # Reconstruct text
+        result = ''.join(sentences)
+        
+        # Add a meaningful caveat at the end if not already present
+        # Skip caveats for explanatory constructions (this is, that is, it is)
+        if (not any(marker in text.lower() for marker in ['however', 'though', 'but', 'exceptions', 'may vary', 'can vary']) and
+            not text.lower().strip().startswith(('this is', 'that is', 'it is', 'there is', 'here is'))):
+            result = self._add_meaningful_caveat(result, text.lower())
+        
+        return result
+    
+    def _has_existing_qualifiers(self, text: str) -> bool:
+        """Check if text already contains hedges, temporal qualifiers, or epistemic markers"""
+        existing_qualifiers = [
+            # Modal hedges
+            'typically', 'generally', 'often', 'usually', 'commonly', 'frequently',
+            'in most cases', 'in many cases', 'in some cases', 'may', 'might', 'could',
+            'possibly', 'likely', 'probably', 'sometimes', 'occasionally',
+            # Temporal qualifiers that already indicate uncertainty/limitation
+            'as of', 'according to', 'based on', 'up to', 'until', 'as far as',
+            'to my knowledge', 'in my understanding', 'from what i know',
+            # Epistemic markers
+            'it appears', 'it seems', 'appears to be', 'seems to be',
+            'i believe', 'i think', 'in my opinion', 'in my view',
+            'it is believed', 'it is thought', 'it is considered',
+            # Uncertainty markers
+            'approximately', 'roughly', 'about', 'around', 'nearly',
+            'tend to', 'tends to', 'inclined to'
+        ]
+        
+        text_lower = text.lower()
+        return any(qualifier in text_lower for qualifier in existing_qualifiers)
+    
+    def _transform_sentence_linguistically(self, sentence: str) -> str:
+        """Transform sentence using linguistic analysis rather than simple pattern matching
+        
+        This method analyzes the sentence structure to identify:
+        - Copula constructions (X is Y)
+        - Modal verbs (should, must, will)
+        - Superlatives (best, worst, most)
+        - Imperatives (use, try, avoid)
+        - Universal quantifiers (always, never, all)
+        
+        And applies appropriate transformations based on the linguistic context.
+        """
+        sentence = sentence.strip()
+        if not sentence:
+            return sentence
+        
+        # Tokenize into words while preserving case
+        words = sentence.split()
+        if not words:
+            return sentence
+        
+        sentence_lower = sentence.lower()
+        
+        # Pattern 1: Copula with superlative (X is the best/worst Y)
+        if self._has_copula_superlative(sentence_lower):
+            return self._transform_copula_superlative(sentence, words)
+        
+        # Pattern 2: Modal obligation (should, must)
+        if self._has_modal_obligation(words):
+            return self._transform_modal_obligation(sentence, words)
+        
+        # Pattern 3: Future prediction (will)
+        if self._has_future_modal(words):
+            return self._transform_future_modal(sentence, words)
+        
+        # Pattern 4: Universal quantifiers (always, never, all, every)
+        if self._has_universal_quantifier(words):
+            return self._transform_universal_quantifier(sentence, words)
+        
+        # Pattern 5: Imperative (starts with verb)
+        if self._is_imperative(sentence_lower, words):
+            return self._transform_imperative(sentence, words)
+        
+        # Pattern 6: Copula without superlative (X is Y)
+        if self._has_simple_copula(sentence_lower):
+            return self._transform_simple_copula(sentence)
+        
+        return sentence
+    
+    def _has_copula_superlative(self, sentence_lower: str) -> bool:
+        """Check if sentence has copula + superlative (is the best/worst/most)
+        
+        Excludes sentences starting with 'this is', 'that is', 'it is' as these
+        are typically explanatory rather than assertive.
+        """
+        # Exclude explanatory constructions
+        if sentence_lower.startswith(('this is', 'that is', 'it is', 'there is', 'here is')):
+            return False
+        
+        copula_superlatives = [
+            ' is the best ', ' is the worst ', ' is the most ',
+            ' are the best ', ' are the worst ', ' are the most ',
+            ' was the best ', ' was the worst ', ' was the most ',
+            ' were the best ', ' were the worst ', ' were the most '
+        ]
+        return any(pattern in sentence_lower for pattern in copula_superlatives)
+    
+    def _transform_copula_superlative(self, sentence: str, words: list) -> str:
+        """Transform 'X is the best Y' -> 'X is often considered the best Y'"""
+        replacements = [
+            (' is the best ', ' is often considered the best '),
+            (' is the worst ', ' is often considered the worst '),
+            (' is the most ', ' is often the most '),
+            (' are the best ', ' are often considered the best '),
+            (' are the worst ', ' are often considered the worst '),
+            (' are the most ', ' are often the most '),
+            (' was the best ', ' was often considered the best '),
+            (' was the worst ', ' was often considered the worst '),
+            (' was the most ', ' was often the most '),
+            (' were the best ', ' were often considered the best '),
+            (' were the worst ', ' were often considered the worst '),
+            (' were the most ', ' were often the most ')
+        ]
+        
+        result = sentence
+        for old, new in replacements:
+            if old in sentence.lower():
+                # Preserve case by finding the actual occurrence
+                idx = sentence.lower().find(old)
+                if idx != -1:
+                    result = sentence[:idx] + new + sentence[idx + len(old):]
+                    break
+        return result
+    
+    def _has_modal_obligation(self, words: list) -> bool:
+        """Check if sentence contains modal obligation (should, must, ought to)"""
+        modal_obligations = ['should', 'must', 'ought']
+        return any(word.lower() in modal_obligations for word in words)
+    
+    def _transform_modal_obligation(self, sentence: str, words: list) -> str:
+        """Transform modal obligations to suggestions"""
+        transformations = {
+            'should': 'may want to',
+            'Should': 'May want to',
+            'must': 'typically need to',
+            'Must': 'Typically need to',
+            'ought to': 'may want to',
+            'Ought to': 'May want to'
+        }
+        
+        result = sentence
+        for old, new in transformations.items():
+            if old in sentence:
+                result = result.replace(old, new, 1)
+                break
+        return result
+    
+    def _has_future_modal(self, words: list) -> bool:
+        """Check if sentence contains future modal 'will'"""
+        return 'will' in [w.lower() for w in words]
+    
+    def _transform_future_modal(self, sentence: str, words: list) -> str:
+        """Transform 'will' to 'will often' or 'will typically'"""
+        # Find position of 'will'
+        for i, word in enumerate(words):
+            if word.lower() == 'will':
+                # Insert 'often' after 'will'
+                words_copy = words.copy()
+                words_copy.insert(i + 1, 'often')
+                return ' '.join(words_copy)
+        return sentence
+    
+    def _has_universal_quantifier(self, words: list) -> bool:
+        """Check if sentence starts with universal quantifier"""
+        if not words:
+            return False
+        first_word = words[0].lower()
+        return first_word in ['always', 'never', 'all', 'every', 'none']
+    
+    def _transform_universal_quantifier(self, sentence: str, words: list) -> str:
+        """Transform universal quantifiers to qualified versions"""
+        transformations = {
+            'Always': 'Usually',
+            'always': 'usually',
+            'Never': 'Rarely',
+            'never': 'rarely',
+            'All': 'Most',
+            'all': 'most',
+            'Every': 'Most',
+            'every': 'most',
+            'None': 'Few',
+            'none': 'few'
+        }
+        
+        first_word = words[0]
+        if first_word in transformations:
+            words[0] = transformations[first_word]
+            return ' '.join(words)
+        return sentence
+    
+    def _is_imperative(self, sentence_lower: str, words: list) -> bool:
+        """Check if sentence is imperative (command)"""
+        if not words:
+            return False
+        
+        imperative_verbs = [
+            'use', 'try', 'avoid', 'choose', 'select', 'pick',
+            'install', 'configure', 'set', 'enable', 'disable',
+            'run', 'execute', 'start', 'stop', 'create', 'delete',
+            'add', 'remove', 'update', 'upgrade', 'download'
+        ]
+        
+        first_word = words[0].lower()
+        return first_word in imperative_verbs
+    
+    def _transform_imperative(self, sentence: str, words: list) -> str:
+        """Transform imperative to suggestion"""
+        # Convert to gerund form with "Consider"
+        verb = words[0]
+        rest = ' '.join(words[1:])
+        
+        verb_to_gerund = {
+            'use': 'using', 'try': 'trying', 'avoid': 'avoiding',
+            'choose': 'choosing', 'select': 'selecting', 'pick': 'picking',
+            'install': 'installing', 'configure': 'configuring',
+            'set': 'setting', 'enable': 'enabling', 'disable': 'disabling',
+            'run': 'running', 'execute': 'executing', 'start': 'starting',
+            'stop': 'stopping', 'create': 'creating', 'delete': 'deleting',
+            'add': 'adding', 'remove': 'removing', 'update': 'updating',
+            'upgrade': 'upgrading', 'download': 'downloading'
+        }
+        
+        verb_lower = verb.lower()
+        if verb_lower in verb_to_gerund:
+            gerund = verb_to_gerund[verb_lower]
+            # Preserve capitalization
+            if verb[0].isupper():
+                return f"Consider {gerund} {rest}"
+            else:
+                return f"consider {gerund} {rest}"
+        
+        return sentence
+    
+    def _has_simple_copula(self, sentence_lower: str) -> bool:
+        """Check if sentence has simple copula (is/are) without superlative"""
+        copulas = [' is ', ' are ', ' was ', ' were ']
+        # Exclude sentences starting with 'this is', 'that is', 'it is'
+        if sentence_lower.startswith(('this is', 'that is', 'it is', 'there is', 'there are')):
+            return False
+        return any(copula in sentence_lower for copula in copulas)
+    
+    def _transform_simple_copula(self, sentence: str) -> str:
+        """Transform 'X is Y' to 'X is often Y'"""
+        copula_patterns = [
+            (' is ', ' is often '),
+            (' are ', ' are often '),
+            (' was ', ' was often '),
+            (' were ', ' were often ')
+        ]
+        
+        result = sentence
+        for old, new in copula_patterns:
+            if old in sentence.lower():
+                idx = sentence.lower().find(old)
+                if idx != -1:
+                    result = sentence[:idx] + new + sentence[idx + len(old):]
+                    break
+        return result
+    
+    def _restructure_sentence_with_conditional(self, sentence: str) -> str:
+        """Legacy method - now delegates to linguistic analysis"""
+        return self._transform_sentence_linguistically(sentence)
+    
+    def _add_meaningful_caveat(self, text: str, text_lower: str) -> str:
+        """Add a meaningful caveat based on content type"""
+        # Determine content type and add appropriate caveat
+        
+        # For technical/procedural content
+        if any(word in text_lower for word in ['system', 'process', 'method', 'approach', 'implementation']):
+            caveat = " Implementation details may vary based on specific requirements."
+        
+        # For recommendations
+        elif any(word in text_lower for word in ['recommend', 'suggest', 'should', 'consider', 'may want']):
+            caveat = " Your specific situation may require a different approach."
+        
+        # For factual statements
+        elif any(word in text_lower for word in [' is ', ' are ', ' will ', ' can ']):
+            caveat = " Exceptions may apply in specific contexts."
+        
+        # Default
+        else:
+            caveat = " Individual circumstances may vary."
+        
+        # Add caveat with proper punctuation
+        text = text.rstrip()
+        if not text.endswith('.'):
+            text += '.'
+        
+        return f"{text}{caveat}"
     
     def shape_commitment(
         self,

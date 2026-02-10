@@ -1,11 +1,57 @@
-# Minimal dependencies for running TruthfulQA/ASQA benchmarks (no torch)
+# ============================================================================
+# Minimal Benchmark Dependencies (Lightweight Installation)
+# ============================================================================
+# This file contains only the essential dependencies needed to run 
+# TruthfulQA/ASQA benchmarks without heavy ML libraries like torch
 
+# Environment variable loading (REQUIRED)
+python-dotenv>=1.0.0
+
+# Core computational libraries
 numpy>=1.24.0
 pandas>=2.0.0
 tqdm>=4.66.0
 
+# Benchmark datasets and metrics
 datasets>=2.14.0
 rouge-score>=0.1.2
 
-# Local LLM provider (Ollama)
+# Statistical analysis for evaluation
+scipy>=1.11.0
+
+# LLM Providers (choose one or install all)
+# Anthropic Claude
+anthropic>=0.40.0
+
+# OpenAI GPT
+openai>=1.0.0
+
+# HuggingFace Inference API
+huggingface-hub>=0.20.0
+
+# Local LLM provider (Ollama) - No torch dependency
 ollama>=0.1.0
+
+# Testing framework
+pytest>=7.4.0
+hypothesis>=6.0.0
+
+# ============================================================================
+# Installation Instructions
+# ============================================================================
+#
+# LIGHTWEIGHT BENCHMARK SETUP:
+#   pip install -r requirements-benchmark.txt
+#
+# This installs only essential dependencies without:
+#   - sentence-transformers (uses torch)
+#   - scikit-learn (heavy ML library)
+#   - gradio (web interface)
+#
+# Perfect for:
+#   - CI/CD pipelines
+#   - Docker containers
+#   - Benchmark-only deployments
+#   - Resource-constrained environments
+#
+# ============================================================================

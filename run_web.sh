@@ -24,13 +24,13 @@ echo ""
 echo "[2/4] Checking if port 7860 is available..."
 echo ""
 
-# Different commands for Linux/Mac
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS
-    PID=$(lsof -ti:7860)
+# Find process using port 7860
+if command -v lsof &> /dev/null; then
+    PID=$(lsof -ti:7860 2>/dev/null)
+elif command -v fuser &> /dev/null; then
+    PID=$(fuser 7860/tcp 2>/dev/null | awk '{print $1}')
 else
-    # Linux
-    PID=$(lsof -ti:7860 2>/dev/null || fuser 7860/tcp 2>/dev/null | awk '{print $1}')
+    PID=""
 fi
 
 if [ ! -z "$PID" ]; then
@@ -62,34 +62,22 @@ echo ""
 
 if [ -f .env ]; then
     echo "Found .env file"
-
-    # Check if any provider is configured
-    if grep -q "^LLM_PROVIDER=" .env && grep -q "^LLM_API_KEY=" .env; then
-        # Check for placeholder
-        if grep -q "your-.*-key-here" .env || grep -q "your-actual-key-here" .env; then
-            echo "WARNING: .env file contains placeholder API key"
-            echo "Please edit .env and add your actual API key"
-            read -p "Press Enter to continue..."
-            exit 1
-        fi
-        echo "API key configured in .env file"
-    else
-        echo "WARNING: .env file exists but LLM_PROVIDER or LLM_API_KEY not set"
-        echo "Please edit .env and uncomment ONE provider section"
+    
+    # Check for placeholder API keys
+    if grep -q "your-.*-key-here" .env; then
+        echo "WARNING: .env file contains placeholder API key"
+        echo "Please edit .env and add your actual Anthropic API key"
         read -p "Press Enter to continue..."
         exit 1
     fi
+    echo "API key configured in .env file"
 else
-    # Check for legacy ANTHROPIC_API_KEY environment variable
-    if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$LLM_API_KEY" ]; then
+    if [ -z "$ANTHROPIC_API_KEY" ]; then
         echo "WARNING: No API key found!"
         echo ""
         echo "Please either:"
-        echo "  1. Create .env file from .env.template"
-        echo "  2. Set environment variable LLM_API_KEY"
-        echo ""
-        echo "Run: cp .env.template .env"
-        echo "Then edit .env and uncomment ONE provider section"
+        echo "  1. Create .env file with ANTHROPIC_API_KEY=your-key-here"
+        echo "  2. Set environment variable ANTHROPIC_API_KEY"
         echo ""
         read -p "Press Enter to continue..."
         exit 1

@@ -116,6 +116,7 @@ if "%CHOICE%"=="7" (
     echo   --batch-size N           Number of examples to evaluate
     echo   --batch-start N          Starting index (for resuming)
     echo   --rate-limit N.N         Delay between API calls (seconds)
+    echo   --include-full-text      Include full text responses in CSV
     echo.
     set /p CUSTOM_CMD="Enter your command (or press Enter to cancel): "
     if not "%CUSTOM_CMD%"=="" (

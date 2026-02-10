@@ -7,12 +7,17 @@ import os
 import time
 from typing import Dict, Tuple, List, Optional
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # python-dotenv not installed, skip loading .env file
+    pass
+
 from trilogy_config import TrilogyConfig
-from trilogy_orchestrator import (
-    TrilogyOrchestrator,
-    BaselineAgent,
-    ComparisonEngine,
-)
+from trilogy_orchestrator import BaselineAgent, ComparisonEngine
+from universal_trilogy_orchestrator import UniversalTrilogyOrchestrator
 from llm_provider import LLMProviderFactory
 
 # Benchmark evaluation imports (optional)
@@ -69,10 +74,8 @@ class TrilogyApp:
         # Initialize LLM provider (auto-detects from .env)
         self.llm_provider = LLMProviderFactory.create_from_env()
 
-        # Initialize agents
-        self.trilogy = TrilogyOrchestrator(
-            config, self.call_llm, self.llm_provider
-        )
+        # Initialize agents with universal commitment regulation architecture
+        self.trilogy = UniversalTrilogyOrchestrator(self.llm_provider, config)
         self.baseline = BaselineAgent(self.call_llm)
 
         provider_name = os.getenv("LLM_PROVIDER", "anthropic")
@@ -461,7 +464,11 @@ class TrilogyApp:
 
         # 5. Generate reports
         print("\n[4/5] Generating reports...")
-        BenchmarkReportGenerator.generate_csv_report(results, config.results_csv_path)
+        BenchmarkReportGenerator.generate_csv_report(
+            results, 
+            config.results_csv_path, 
+            include_full_text=config.include_full_text_in_csv
+        )
         BenchmarkReportGenerator.generate_summary_json(results, aggregated, config.summary_json_path, config)
 
         if config.comparison_path:
@@ -546,6 +553,8 @@ def main():
                        help='Starting index for batch processing')
     parser.add_argument('--rate-limit', type=float, default=1.0,
                        help='Delay between API calls (seconds)')
+    parser.add_argument('--include-full-text', action='store_true',
+                       help='Include full text responses in CSV output (makes files larger)')
 
     args = parser.parse_args()
     
@@ -554,11 +563,15 @@ def main():
 
     if args.benchmark:
         # Run benchmark evaluation
+        # Set correct split based on benchmark type
+        split = 'dev' if args.benchmark == 'asqa' else 'validation'
         config = BenchmarkConfig(
             benchmark_name=args.benchmark,
+            split=split,
             batch_size=args.batch_size,
             batch_start_idx=args.batch_start,
             rate_limit_delay_s=args.rate_limit,
+            include_full_text_in_csv=args.include_full_text,
         )
 
         results, _ = app.process_benchmark(args.benchmark, config)

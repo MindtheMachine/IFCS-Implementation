@@ -15,7 +15,8 @@ class BenchmarkReportGenerator:
     @staticmethod
     def generate_csv_report(
         results: List[Any],  # List[BenchmarkEvaluationResult]
-        output_path: str
+        output_path: str,
+        include_full_text: bool = False
     ):
         """Generate CSV with per-example results
 
@@ -26,22 +27,29 @@ class BenchmarkReportGenerator:
             - regulated_[metric_name]
             - metric_improvement
             - ecr_fired, cp_type1_fired, ifcs_fired, cp_type2_fired
-            - ifcs_risk_reduction_pct (if available)
             - processing_time_s
             - error
+            - baseline_response (if include_full_text=True)
+            - regulated_response (if include_full_text=True)
 
         Args:
             results: List of BenchmarkEvaluationResult
             output_path: Path to save CSV file
+            include_full_text: Whether to include full text responses in CSV
         """
         if not results:
             print(f"[Warning] No results to write to CSV")
             return
 
-        # Determine metric columns based on first result
-        metric_columns = []
-        if results[0].baseline_metrics:
-            metric_columns = list(results[0].baseline_metrics.scores.keys())
+        # Collect all unique metric names from all results
+        all_metrics = set()
+        for result in results:
+            if result.baseline_metrics:
+                all_metrics.update(result.baseline_metrics.scores.keys())
+            if result.regulated_metrics:
+                all_metrics.update(result.regulated_metrics.scores.keys())
+        
+        metric_columns = sorted(list(all_metrics))
 
         # Define CSV columns
         columns = ['example_id', 'prompt_preview']
@@ -63,6 +71,10 @@ class BenchmarkReportGenerator:
 
         # Add other columns
         columns.extend(['processing_time_s', 'error'])
+        
+        # Add full text columns if requested
+        if include_full_text:
+            columns.extend(['baseline_response', 'regulated_response'])
 
         # Write CSV
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
@@ -70,22 +82,28 @@ class BenchmarkReportGenerator:
             writer.writeheader()
 
             for result in results:
-                row = {
+                # Initialize row with all columns set to empty string
+                row = {col: '' for col in columns}
+                
+                # Fill in the basic data
+                row.update({
                     'example_id': result.example_id,
                     'prompt_preview': result.prompt[:100] if result.prompt else '',
                     'processing_time_s': f"{result.processing_time_s:.2f}",
                     'error': result.error or ''
-                }
+                })
 
                 # Add baseline metrics
                 if result.baseline_metrics:
                     for metric, value in result.baseline_metrics.scores.items():
-                        row[f'baseline_{metric}'] = f"{value:.4f}"
+                        if f'baseline_{metric}' in columns:
+                            row[f'baseline_{metric}'] = f"{value:.4f}"
 
                 # Add regulated metrics
                 if result.regulated_metrics:
                     for metric, value in result.regulated_metrics.scores.items():
-                        row[f'regulated_{metric}'] = f"{value:.4f}"
+                        if f'regulated_{metric}' in columns:
+                            row[f'regulated_{metric}'] = f"{value:.4f}"
 
                 # Add improvements
                 if result.baseline_metrics and result.regulated_metrics:
@@ -93,7 +111,8 @@ class BenchmarkReportGenerator:
                         baseline_val = result.baseline_metrics.scores.get(metric, 0)
                         regulated_val = result.regulated_metrics.scores.get(metric, 0)
                         improvement = regulated_val - baseline_val
-                        row[f'{metric}_improvement'] = f"{improvement:.4f}"
+                        if f'{metric}_improvement' in columns:
+                            row[f'{metric}_improvement'] = f"{improvement:.4f}"
 
                 # Add mechanism firing info
                 if result.regulated_result:
@@ -102,9 +121,24 @@ class BenchmarkReportGenerator:
                     row['ifcs_fired'] = result.regulated_result.ifcs_fired
                     row['cp_type2_fired'] = result.regulated_result.cp_type2_fired
 
+                # Add full text responses if requested
+                if include_full_text:
+                    # Clean text for CSV (remove newlines, limit length)
+                    if result.baseline_response:
+                        baseline_clean = result.baseline_response.replace('\n', ' ').replace('\r', ' ')
+                        row['baseline_response'] = baseline_clean[:1000] + ('...' if len(baseline_clean) > 1000 else '')
+                    
+                    if result.regulated_result and result.regulated_result.final_response:
+                        regulated_clean = result.regulated_result.final_response.replace('\n', ' ').replace('\r', ' ')
+                        row['regulated_response'] = regulated_clean[:1000] + ('...' if len(regulated_clean) > 1000 else '')
+
                 writer.writerow(row)
 
         print(f"[Report] CSV saved to: {output_path}")
+        if include_full_text:
+            print(f"[Report] Full text responses included (truncated to 1000 chars)")
+        else:
+            print(f"[Report] For full text responses, see: {output_path.replace('_results.csv', '_comparison.txt')}")
 
     @staticmethod
     def generate_summary_json(

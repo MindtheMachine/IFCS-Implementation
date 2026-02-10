@@ -35,13 +35,38 @@ else
     echo "Git already initialized"
 fi
 
-# Check .gitignore
+# Add .gitignore if not exists
 if [ ! -f ".gitignore" ]; then
-    echo ""
-    echo "ERROR: .gitignore not found!"
-    echo "Please ensure .gitignore exists before committing"
-    read -p "Press Enter to continue..."
-    exit 1
+    echo "Creating .gitignore..."
+    cat > .gitignore << 'EOF'
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+
+# API Keys (CRITICAL!)
+.env
+*.key
+secrets.txt
+
+# Output files
+*_output.txt
+batch_results.json
+test_results.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Gradio
+flagged/
+EOF
+    echo ".gitignore created"
 else
     echo ".gitignore exists"
 fi
@@ -66,11 +91,6 @@ echo ""
 echo "Adding files to git..."
 git add .
 echo "Files added"
-
-# Show status
-echo ""
-echo "Git status:"
-git status --short
 
 # Commit
 echo ""
@@ -109,9 +129,9 @@ if [ "$choice" = "1" ]; then
     fi
 
     echo ""
-    read -p "Repository name (default: IFCS-Implementation): " repo_name
+    read -p "Repository name (default: trilogy-implementation): " repo_name
     if [ -z "$repo_name" ]; then
-        repo_name="IFCS-Implementation"
+        repo_name="trilogy-implementation"
     fi
 
     read -p "Make repository public? (y/n): " is_public
@@ -139,7 +159,7 @@ elif [ "$choice" = "2" ]; then
     echo "Manual Setup Instructions:"
     echo ""
     echo "1. Go to: https://github.com/new"
-    echo "2. Repository name: IFCS-Implementation"
+    echo "2. Repository name: trilogy-implementation"
     echo "3. Description: Implementation of ECR-Control Probe-IFCS inference-time governance trilogy"
     echo "4. Choose Public or Private"
     echo "5. DON'T initialize with README (we have one)"
@@ -148,7 +168,7 @@ elif [ "$choice" = "2" ]; then
     read -p "Press Enter when you've created the repository..."
 
     echo ""
-    read -p "Enter the repository URL (e.g., https://github.com/MindtheMachine/IFCS-Implementation.git): " repo_url
+    read -p "Enter the repository URL (e.g., https://github.com/MindtheMachine/trilogy-implementation.git): " repo_url
 
     if [ -z "$repo_url" ]; then
         echo "ERROR: Repository URL required"
@@ -158,11 +178,10 @@ elif [ "$choice" = "2" ]; then
 
     echo ""
     echo "Adding remote and pushing..."
-
-    # Remove existing origin if present
-    git remote remove origin 2>/dev/null
-
-    git remote add origin "$repo_url"
+    git remote add origin "$repo_url" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        git remote set-url origin "$repo_url"
+    fi
     git branch -M main
     git push -u origin main
 
@@ -185,6 +204,12 @@ echo "2. Add topics: llm-safety, ai-governance, inference-time-control"
 echo "3. Enable GitHub Discussions (optional)"
 echo "4. Add repository description"
 echo "5. Star your own repository!"
+echo ""
+echo "To continue in Claude Code:"
+echo "  cd $(pwd)"
+echo "  claude-code"
+echo ""
+echo "See CLAUDE_CODE_SETUP.md for more details"
 echo ""
 echo "Setup complete!"
 echo ""
