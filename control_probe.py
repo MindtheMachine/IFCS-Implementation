@@ -1,6 +1,22 @@
 """
 Control Probe Implementation (Type-1 and Type-2)
 Based on: Chatterjee, A. (2026a). Control Probe: Inference-time commitment control
+
+⚠️ DEPRECATION NOTICE:
+This module contains the LEGACY Control Probe implementation.
+New code should use HybridControlProbe from commitment_regulation_architecture.py
+
+The hybrid implementation combines:
+- Paper's σ(z*) evaluative support estimation (6-dimensional semantic analysis)
+- Implementation's alternative detection and evidence dominance logic
+
+This legacy module is maintained for:
+- Backward compatibility with existing tests
+- Performance benchmarking comparisons
+- Legacy system validation
+
+For new development, use:
+    from commitment_regulation_architecture import HybridControlProbe
 """
 
 from typing import List, Dict, Optional, Tuple

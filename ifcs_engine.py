@@ -1,6 +1,24 @@
 """
 Inference-Time Commitment Shaping (IFCS) Implementation
 Based on: Chatterjee, A. (2026c). Inference-Time Commitment Shaping
+
+⚠️ DEPRECATION NOTICE:
+This module contains the LEGACY IFCS implementation.
+New code should use HybridIFCS from commitment_regulation_architecture.py
+
+The hybrid implementation combines:
+- Paper's R(z*) = λ₁·ê + λ₂·ŝ + λ₃·â + λ₄·t̂ computation
+- Paper's six deterministic transformation rules (Γ)
+- Implementation's semantic preservation guarantee with rollback
+
+This legacy module is maintained for:
+- Backward compatibility with existing tests
+- Performance benchmarking comparisons
+- Legacy system validation
+- κ(z*) gate testing (CommitmentActualityClassifier)
+
+For new development, use:
+    from commitment_regulation_architecture import HybridIFCS
 """
 
 import re
