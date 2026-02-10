@@ -12,8 +12,8 @@ This system implements a comprehensive inference-time governance architecture wi
 | Component | Implementation Status | Performance |
 |-----------|----------------------|-------------|
 | **Commitment Analysis Engine** | ✅ Complete | Semantic invariant extraction |
-| **Universal Control Probe** | ✅ Complete | Commitment structure evaluation |
-| **Universal IFCS** | ✅ Complete | Expression calibration with semantic preservation |
+| **Hybrid Control Probe** | ✅ Complete | Paper's σ(z*) + implementation's logic |
+| **Hybrid IFCS** | ✅ Complete | Paper's R(z*) + six rules + semantic preservation |
 | **Decision Geometry Analysis** | ✅ Complete | Logit margin and evidence dominance |
 | **Commitment-Reducing Alternatives** | ✅ Complete | Alternative candidate detection |
 | **Semantic Preservation** | ✅ Complete | Guaranteed invariant preservation |
@@ -300,20 +300,20 @@ python trilogy_app.py --benchmark truthfulqa
 - **Solution**: Universal system regulates **commitments** (candidate structure)
 - **Result**: Eliminates overfiring on legitimate questions across all domains
 
-**Universal CP-1 Logic**:
-- **Commitment Heavy**: Does candidate make irreversible/global claims?
-- **Alternative Available**: Is there a commitment-reducing alternative?
-- **Evidence Dominance**: Does evidence support the commitment?
-- **Fire Only If**: Heavy commitment + No alternative + Low evidence
+**Hybrid CP-1 Logic**:
+- **Evaluative Support (Paper)**: Uses σ(z*) with 6-dimensional semantic analysis
+- **Alternative Available (Implementation)**: Is there a commitment-reducing alternative?
+- **Evidence Dominance (Implementation)**: Does evidence support the commitment?
+- **Fire Only If**: Low σ(z*) + No alternative + Low evidence
 
 ### 🏗️ Commitment-Based Pipeline
 
-**Sequential Architecture** (Universal Standard):
+**Sequential Architecture** (Hybrid Standard):
 - **Candidate Generation**: ECR creates multiple response options
-- **Internal Selection**: Argmax selects best candidate (creates commitment target)
-- **Commitment Analysis**: Analyze structure of selected candidate
-- **Universal CP-1**: Regulate based on commitment structure + alternatives + evidence
-- **Universal IFCS**: Expression calibration with semantic preservation guarantee
+- **ECR Coherence Selection**: CCI-based selection (trajectory unrolling + 5 metrics)
+- **Commitment Analysis**: Analyze structure of ECR-selected candidate
+- **Hybrid CP-1**: Regulate based on paper's σ(z*) + implementation's alternatives + evidence
+- **Hybrid IFCS**: Paper's R(z*) + six transformation rules + semantic preservation guarantee
 
 **Cross-Domain Generalization**:
 - **QA**: Factual questions answered appropriately without overfiring
@@ -707,7 +707,7 @@ This implementation supports evaluation on:
 - **Cross-Domain Validation**: Universal invariants verified across all task domains
 
 ### Commitment-Based Control Logic (✅)
-- **Universal CP-1**: Fire only if commitment is heavy + no reducing alternative + low evidence
+- **Hybrid CP-1**: Paper's σ(z*) evaluative support + implementation's alternative detection + evidence dominance
 - **Alternative Detection**: Automatically finds commitment-reducing alternatives
 - **Evidence Dominance**: High-evidence commitments are not blocked
 - **Semantic Preservation**: IFCS guaranteed to preserve semantic invariants

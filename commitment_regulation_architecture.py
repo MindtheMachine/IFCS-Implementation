@@ -5,7 +5,7 @@ Implements benchmark-agnostic commitment control following the principle:
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import numpy as np
 from abc import ABC, abstractmethod
 
@@ -564,7 +564,7 @@ class CommitmentRegulationPipeline:
     def __init__(self, 
                  commitment_analyzer: Optional[CommitmentAnalyzer] = None,
                  control_probe: Optional[HybridControlProbe] = None,
-                 ifcs: Optional[UniversalIFCS] = None):
+                 ifcs: Optional[HybridIFCS] = None):
         self.commitment_analyzer = commitment_analyzer or GenericCommitmentAnalyzer()
         self.control_probe = control_probe or HybridControlProbe(commitment_analyzer=self.commitment_analyzer)
         self.ifcs = ifcs or HybridIFCS(commitment_analyzer=self.commitment_analyzer)

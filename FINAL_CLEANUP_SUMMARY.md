@@ -26,15 +26,15 @@
    - Extracts factual claims, entities, relationships, scope
    - Determines if candidate makes irreversible/global claims
 
-2. **Universal Control Probe** (`commitment_regulation_architecture.py`)
-   - Fires based on commitment structure, not prompt ambiguity
-   - Checks for commitment-reducing alternatives
-   - Uses decision geometry (logit margins, evidence dominance)
+2. **Hybrid Control Probe** (`commitment_regulation_architecture.py`)
+   - Combines paper's σ(z*) evaluative support with implementation's architectural logic
+   - Fires based on low evaluative support + no alternatives + low evidence
+   - Uses 6-dimensional semantic analysis (confidence, consistency, grounding, factuality, intent_clarity, domain_alignment)
 
-3. **Universal IFCS** (`commitment_regulation_architecture.py`)
-   - Expression calibration with guaranteed semantic preservation
-   - Cannot change meaning, only confidence/tone/modality
-   - Automatic rollback on semantic drift
+3. **Hybrid IFCS** (`commitment_regulation_architecture.py`)
+   - Combines paper's R(z*) computation with six transformation rules
+   - Adds implementation's semantic preservation guarantee with rollback
+   - Uses deterministic transformations (C4 compliant)
 
 4. **Universal Orchestrator** (`universal_trilogy_orchestrator.py`)
    - Implements complete universal pipeline
@@ -49,16 +49,16 @@ Candidate Generation (ECR: Multiple response options)
     ↓
 Internal Selection (Argmax: Select best candidate)
     ↓
-Commitment Analysis (Analyze commitment structure, not prompt ambiguity)
+Commitment Analysis (Paper's σ(z*) semantic analysis + Implementation's architectural logic)
     ↓
-Universal Control Probe (Regulate based on commitment + alternatives + evidence)
+Hybrid Control Probe (Paper's evaluative support + Implementation's alternatives + evidence dominance)
     ↓
-Universal IFCS (Expression calibration with semantic preservation)
+Hybrid IFCS (Paper's R(z*) + six transformation rules + Implementation's semantic preservation)
     ↓
 Output to User
 ```
 
-## 🔧 Universal CP-1 Rule (The Key Fix)
+## 🔧 Hybrid CP-1 Rule (The Key Fix)
 
 ```python
 def cp1_universal(candidate, decision_state):
@@ -109,18 +109,18 @@ def cp1_universal(candidate, decision_state):
 
 ## 🧪 Validation Results
 
-### Universal Architecture Tests
+### Hybrid Architecture Tests
 - ✅ **Commitment Weight Analysis**: Accurate commitment structure detection
-- ✅ **Universal CP-1 Rule**: Correct firing based on commitment + alternatives + evidence
-- ✅ **IFCS Semantic Preservation**: Guaranteed semantic invariant preservation
+- ✅ **Hybrid CP-1 Rule**: Paper's σ(z*) + implementation's alternatives + evidence dominance
+- ✅ **IFCS Semantic Preservation**: Paper's R(z*) + six rules + semantic preservation guarantee
 - ✅ **TruthfulQA Overfiring Fix**: Eliminated without benchmark-specific code
-- ✅ **Cross-Domain Invariants**: Universal principles hold across all domains
+- ✅ **Cross-Domain Invariants**: Hybrid principles hold across all domains
 
 ### Test Suite Results
 ```bash
 python test_universal_architecture_validation.py
 # ✅ Commitment weight analysis tests passed
-# ✅ Universal CP-1 rule tests passed  
+# ✅ Hybrid CP-1 rule tests passed  
 # ✅ IFCS semantic preservation tests passed
 # ✅ TruthfulQA overfiring fix tests passed
 # ✅ Universal invariants tests passed
